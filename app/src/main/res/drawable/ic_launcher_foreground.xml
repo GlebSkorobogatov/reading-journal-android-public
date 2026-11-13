@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Curved open pages kept inside the adaptive icon safe zone. -->
+    <path android:fillColor="@color/launcher_page"
+        android:strokeColor="@color/launcher_ink" android:strokeWidth="3.2"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M54,40 C48,35 40,33 33,35 Q31,35 31,38 L31,69 Q31,72 34,71 C41,70 48,73 54,77 C60,73 67,70 74,71 Q77,72 77,69 L77,38 Q77,35 75,35 C68,33 60,35 54,40 Z" />
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="@color/launcher_ink" android:strokeWidth="3.2"
+        android:strokeLineCap="round" android:pathData="M54,40 L54,77" />
+</vector>

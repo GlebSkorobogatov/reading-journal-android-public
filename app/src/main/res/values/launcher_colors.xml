@@ -1,0 +1,6 @@
+<resources>
+    <!-- Existing approved light-theme tokens; no new palette. -->
+    <color name="launcher_background">#F7F4ED</color>
+    <color name="launcher_page">#F1DFD3</color>
+    <color name="launcher_ink">#98583F</color>
+</resources>
