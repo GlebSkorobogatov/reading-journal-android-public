@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
@@ -43,7 +44,7 @@ class HomeEvidenceTest {
                 screenshot("${mode.name}-${section.name}-top")
                 val frames = if (section == HomeSection.RECORDS) 3 else 2
                 repeat(frames) { frame ->
-                    swipeFeed()
+                    scrollFeed()
                     screenshot("${mode.name}-${section.name}-${frame + 1}")
                 }
             }
@@ -136,12 +137,15 @@ class HomeEvidenceTest {
             val footer = rule.onAllNodesWithTag("home-footer").fetchSemanticsNodes().firstOrNull()?.boundsInRoot
             val viewport = rule.onNodeWithTag("home-feed").fetchSemanticsNode().boundsInRoot
             if (footer != null && footer.top >= viewport.top && footer.bottom <= viewport.bottom + 1f) return
-            swipeFeed()
+            scrollFeed()
         }
         fail("The sequential screenshot sequence never reached the feed footer")
     }
-    private fun swipeFeed() {
-        rule.onNodeWithTag("home-feed").performTouchInput { swipeUp(startY = height * .8f, endY = height * .25f, durationMillis = 250) }
+    private fun scrollFeed() {
+        val feed = rule.onNodeWithTag("home-feed")
+        val distance = feed.fetchSemanticsNode().boundsInRoot.height * .7f
+        // A fixed viewport fraction guarantees overlap; a fling can jump past content.
+        feed.performSemanticsAction(SemanticsActions.ScrollBy) { scroll -> scroll(0f, distance) }
         rule.waitForIdle()
     }
     private fun screenshot(name: String) {
