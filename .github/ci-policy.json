@@ -1,8 +1,30 @@
 {
-  "task": "UI-01",
-  "minimum_jvm": 3,
-  "minimum_compose": 10,
-  "compose_apis": [26, 35, 36],
-  "allowed_files": [".gitattributes", ".gitignore", "AGENTS.md", "README.md", "PRD.md", "ARCHITECTURE.md", "UI_DESIGN_SPEC.md", "IMPLEMENTATION_PLAN.md", "TEST_PLAN.md", "build.gradle.kts", "settings.gradle.kts", "gradle.properties", "gradlew", "gradlew.bat", "app/build.gradle.kts", "app/src/main/AndroidManifest.xml"],
-  "allowed_prefixes": [".github/", "docs/", "gradle/", "licenses/", "app/src/main/java/ru/gleb/readingjournal/app/", "app/src/main/java/ru/gleb/readingjournal/demo/", "app/src/main/java/ru/gleb/readingjournal/ui/designsystem/", "app/src/main/res/", "app/src/debug/", "app/src/test/", "app/src/androidTest/"]
+  "task": "UI-02",
+  "minimum_jvm": 18,
+  "minimum_compose": 32,
+  "compose_apis": [
+    26,
+    35,
+    36
+  ],
+  "allowed_files": [
+    ".github/ci-policy.json",
+    ".github/scripts/test_ci.py",
+    ".github/workflows/android-full.yml",
+    "README.md",
+    "app/build.gradle.kts",
+    "app/src/main/java/ru/gleb/readingjournal/app/JournalApp.kt",
+    "docs/CI.md",
+    "docs/README.md",
+    "docs/FILES.txt",
+    "docs/SHA256SUMS.txt"
+  ],
+  "allowed_prefixes": [
+    "app/src/main/java/ru/gleb/readingjournal/ui/home/",
+    "app/src/main/java/ru/gleb/readingjournal/demo/",
+    "app/src/debug/",
+    "app/src/test/",
+    "app/src/androidTest/",
+    "docs/acceptance/"
+  ]
 }

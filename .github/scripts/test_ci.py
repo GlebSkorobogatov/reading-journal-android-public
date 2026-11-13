@@ -53,7 +53,7 @@ class Decisions(unittest.TestCase):
                 ci.validate_policy(p)
 
     def test_future_task_floor_cannot_decrease(self):
-        previous = copy.deepcopy(POLICY);previous['minimum_compose'] = 12
+        previous = copy.deepcopy(POLICY);previous['minimum_compose'] = POLICY['minimum_compose'] + 2
         with self.assertRaises(ValueError):ci.validate_policy(POLICY, previous)
 
     def test_full_gate_rejects_skips_failures_cancellation_and_missing_jobs(self):
@@ -119,7 +119,7 @@ class GitIntegration(unittest.TestCase):
                               cwd=self.root, env=env, capture_output=True, text=True)
 
     def test_real_docs_delta_does_not_rebuild_the_entire_pr(self):
-        path = self.root / 'app/src/main/java/ru/gleb/readingjournal/app/Fixture.kt'
+        path = self.root / 'app/src/main/java/ru/gleb/readingjournal/ui/home/Fixture.kt'
         path.parent.mkdir(parents=True)
         path.write_text('// Synthetic fixture, never application code\n')
         code_head = self.commit()

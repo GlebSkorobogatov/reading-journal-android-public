@@ -4,7 +4,7 @@
 
 Репозиторий назначения: [reading-journal-android-public](https://github.com/GlebSkorobogatov/reading-journal-android-public). Копия подготовлена отдельно, с новой независимой Git-историей и подтверждённой noreply-идентичностью автора/коммиттера. Перевод видимости выполняет только владелец после проверки Draft PR и отчёта MIGRATION-01.
 
-**Статус:** UI-01 — **COMPLETE**, окончательно принят владельцем 13 ноября 2026 г. Финальная APK Head `4bb865edad1ae1dc50d96ab0955de8ce2d6413ec`: все 10 пунктов ручной приёмки на Samsung Galaxy A55 — PASS, замечаний нет, установка и запуск успешны; CI 43457557668 — Full acceptance PASS, SHA-256 скачанной APK независимо сверена. Merge PR №1 в main явно разрешён после обязательных проверок итогового Head. [Результаты и APK](docs/acceptance/UI-01.md). UI-02/UI-03 не начаты; полноценной библиотеки, таймера, БД, статистики и пользовательского резервирования нет.
+**Статус:** UI-01 — COMPLETE, принят владельцем и объединён в main (PR №1). UI-02 — Главная на детерминированных демонстрационных данных, в работе; hosted CI и ручная приёмка ещё ожидаются. Реализованы читаемые книги/pin, mock-таймер/мини-панель, иллюстрированная XP-карточка, фиксированные метрики/периоды и пять секций аналитики. [Отчёт UI-02](docs/acceptance/UI-02.md) · [ручной checklist A55](docs/acceptance/UI-02-GALAXY-A55.md). Реальные таймер, аналитика, XP и хранилище не реализованы. Merge UI-02 и начало UI-03 не разрешены.
 
 ## Документация и границы
 
@@ -14,7 +14,7 @@
 
 Нет аккаунтов, сервера, синхронизации, телеметрии, сетевого каталога или интернет-функциональности. Публичная доступность исходного кода не добавляет функций публикации пользовательских записей. Не добавлять личные книги, обложки, заметки, базы, ключи или локальные настройки в Git и CI.
 
-Код UI-01 подготовлен в ветке `codex/ui-01-design-system-navigation`; результат разрешённого объединения и итоговый SHA main фиксируются в [PR №1](https://github.com/GlebSkorobogatov/reading-journal-android-public/pull/1).
+Принятая база UI-02: `4c14b5dce1b9dc819d76c5c6368236320c442c3c`, main после [PR №1](https://github.com/GlebSkorobogatov/reading-journal-android-public/pull/1). Рабочая ветка: `codex/ui-02-home-screen`; старую ветку UI-01 и исходный проект не изменять.
 
 ## Сборка
 
@@ -22,7 +22,7 @@
 
 ```sh
 ./gradlew :app:assembleDebug :app:lintDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest
-python3 .github/scripts/verify_test_results.py app/build/test-results/testDebugUnitTest --minimum 3
+python3 .github/scripts/verify_test_results.py app/build/test-results/testDebugUnitTest --minimum 18
 python3 .github/scripts/verify_docs.py
 python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
 git diff --check
@@ -32,16 +32,16 @@ git diff --check
 
 ```sh
 ./gradlew :app:connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
-python3 .github/scripts/verify_test_results.py app/build/outputs/androidTest-results/connected/debug --minimum 10
+python3 .github/scripts/verify_test_results.py app/build/outputs/androidTest-results/connected/debug --minimum 32
 ```
 
-Debug APK: `app/build/outputs/apk/debug/app-debug.apk`, applicationId `ru.gleb.readingjournal`, versionName **0.1.1-ui01**, versionCode **2**. В Windows использовать `gradlew.bat` и Python 3.12+. Debug-сборка не является публичным релизом или готовым рабочим дневником.
+Debug APK: `app/build/outputs/apk/debug/app-debug.apk`, applicationId `ru.gleb.readingjournal`, versionName **0.2.0-ui02**, versionCode **3**. В Windows использовать `gradlew.bat` и Python 3.12+. Debug-сборка не является публичным релизом или готовым рабочим дневником.
 
 ## CI и приёмка
 
 [Схема CI](docs/CI.md): быстрый workflow для PR и main, полный — по явному разрешению владельца, включая автоматический перевод PR в Ready через Codex. Повторные полные push/PR-запуски рабочей ветки устранены. Только стандартные Ubuntu runners, `contents: read`, без секретов; в приватном репозитории исполнение jobs заблокировано. До разрешения владельца CI не запускать. Артефакты быстрых запусков хранятся 7 дней, полных — 30.
 
-Полная проверка обязательна на итоговом Head перед приёмкой: Build/lint, минимум 3 JVM и 10 Compose-тестов на **каждой** API 26/35/36, без failures/errors/skips. `Quick checks` не заменяет `Full acceptance`. Свежие CI-ссылки и APK добавляются только после фактического запуска; старые результаты не выдаются за новые.
+Полная проверка обязательна на итоговом Head перед приёмкой: Build/lint, минимум 18 JVM и 32 Compose-теста на **каждой** API 26/35/36, без failures/errors/skips. `Quick checks` не заменяет `Full acceptance`. Свежие CI-ссылки и APK добавляются только после фактического запуска; старые результаты не выдаются за новые.
 
 [Отчёт UI-01](docs/acceptance/UI-01.md) · [Galaxy A55](docs/acceptance/UI-01-GALAXY-A55.md) · [Подготовка переноса](docs/acceptance/MIGRATION-01.md) · [Публикация и новая среда Codex](docs/PUBLICATION.md).
 
@@ -49,6 +49,6 @@ Debug APK: `app/build/outputs/apk/debug/app-debug.apk`, applicationId `ru.gleb.r
 
 ## Следующий шаг
 
-Владелец окончательно принял UI-01 и разрешил merge PR №1 после проверок отчётного Head. После объединения проверить main и остановиться. Порядок DOC → REPO → UI-01 → UI-02 → UI-03 → остальные UI → функциональная фаза → QA → REL сохраняется. UI-02 требует нового явного разрешения и в текущем задании не начинается.
+Завершить проверки итогового Head UI-02 и предоставить проверенную APK/кадры для отдельной ручной приёмки владельцем. После успешного полного CI и доказательств остановиться; merge и UI-03 не выполнять. Сценарии: Настройки → Каталог компонентов · debug → Сценарии главной · debug. Выбор сценария сбрасывает только mock-state. Длительность таймера фиксирована, реальные записи и начисления не создаются.
 
 Codex самостоятельно управляет веткой и PR в scope задания, запускает проверки, анализирует CI, исправляет согласованные ошибки и предоставляет готовый APK с SHA-256 и отчётом. Ручные GitHub-действия владельца нужны только при подтверждённом ограничении инструментов. Merge и следующее задание требуют отдельных явных разрешений. Подробности — AGENTS.md и docs/CI.md.

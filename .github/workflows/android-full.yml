@@ -86,7 +86,7 @@ jobs:
             set -eu
             echo '::notice::Emulator booted; starting full instrumentation suite.'
             mkdir -p app/build
-            bash -o pipefail -c './gradlew :app:connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true 2>&1 | tee app/build/connected-debug.log'
+            bash -o pipefail -c './gradlew :app:connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true -Pandroid.testInstrumentationRunnerArguments.sourceSha=${{ github.event.pull_request.head.sha || github.sha }} 2>&1 | tee app/build/connected-debug.log'
             mkdir -p app/build/emulator-screenshots
             adb exec-out run-as ru.gleb.readingjournal tar -C files -cf - screenshots > app/build/screenshots.tar
             tar -xf app/build/screenshots.tar -C app/build/emulator-screenshots

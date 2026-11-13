@@ -17,6 +17,7 @@
 | [ADR](decisions/adr/README.md) | Архитектурные направления, стек, организация CI |
 | [Дизайн](design/README.md), [точный референс](design/APPROVED_REFERENCE.md) | Нормативные визуальные источники |
 | [UI-01](acceptance/UI-01.md), [A55](acceptance/UI-01-GALAXY-A55.md), [MIGRATION-01](acceptance/MIGRATION-01.md) | Текущий статус и приёмка |
+| [UI-02](acceptance/UI-02.md), [A55 UI-02](acceptance/UI-02-GALAXY-A55.md) | Главная на deterministic fixtures, проверки и отдельная ручная приёмка |
 | [CI](CI.md), [публикация и среда](PUBLICATION.md) | Уровни проверок и действия владельца |
 | [FILES.txt](FILES.txt), [SHA256SUMS.txt](SHA256SUMS.txt) | Явный перечень файлов и новые суммы документов |
 

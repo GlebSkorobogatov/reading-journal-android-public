@@ -20,7 +20,7 @@ import ru.gleb.readingjournal.app.ThemeMode
 import ru.gleb.readingjournal.ui.designsystem.*
 
 @Composable
-fun ComponentCatalog() {
+fun ComponentCatalog(onHomeScenarios: (() -> Unit)? = null) {
     val coverBackground = LocalJournalColors.current.accentSoft
     val coverLine = LocalJournalColors.current.accent
     val sampleCover = remember(coverBackground, coverLine) { object : Painter() {
@@ -39,6 +39,7 @@ fun ComponentCatalog() {
         .padding(Space.lg), verticalArrangement = Arrangement.spacedBy(Space.lg)) {
         Text("Каталог UI-01 · только демонстрация", Modifier.semantics { heading() }, style = JournalType.screen)
         Text("Офлайн-компоненты. Нажатия не изменяют книги или пользовательские данные.")
+        if (onHomeScenarios != null) JournalButton("Сценарии главной · debug", onHomeScenarios)
         JournalCard {
             Text("Кнопки и состояния", style = JournalType.section)
             ButtonKind.entries.forEach { kind ->
