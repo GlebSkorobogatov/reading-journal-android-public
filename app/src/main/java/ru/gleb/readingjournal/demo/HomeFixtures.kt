@@ -1,6 +1,7 @@
 package ru.gleb.readingjournal.demo
 
 import ru.gleb.readingjournal.ui.home.*
+import java.time.LocalDate
 
 /** Fixed synthetic examples, anchored at 12 November 2026. Never written as user records. */
 object HomeFixtures {
@@ -17,10 +18,10 @@ object HomeFixtures {
             "30 стр/ч", "≈ 6 ч", "56 мин", "28 стр", "40 мин", "2 ч 30 мин"),
         HomePeriod.MONTH to PeriodSnapshotUi("8 ч", QuantityUi(254), listOf(300, 180, 0),
             listOf(10, 56, 0, 4, 20, 30, 30), listOf(5, 28, 8, 2, 10, 15, 21),
-            "30 стр/ч", "≈ 6 ч", "1 ч 35 мин", "52 стр", "1 ч 35 мин", "8 ч"),
+            "30 стр/ч", "≈ 6 ч", "1 ч 35 мин", "52 стр", "1 ч 35 мин", "4 ч 29 мин"),
         HomePeriod.QUARTER to PeriodSnapshotUi("16 ч", QuantityUi(494), listOf(600, 360, 0),
             listOf(10, 56, 0, 4, 20, 30, 30), listOf(5, 28, 8, 2, 10, 15, 21),
-            "30 стр/ч", "≈ 6 ч", "2 ч 15 мин", "52 стр", "1 ч 35 мин", "8 ч"),
+            "30 стр/ч", "≈ 6 ч", "1 ч 35 мин", "52 стр", "1 ч 35 мин", "5 ч 30 мин"),
         HomePeriod.YEAR to PeriodSnapshotUi("25 ч", QuantityUi(764), listOf(900, 500, 0),
             listOf(10, 56, 0, 4, 20, 30, 30), listOf(5, 28, 8, 2, 10, 15, 21),
             "30 стр/ч", "≈ 6 ч", "2 ч 15 мин", "52 стр", "1 ч 35 мин", "8 ч"),
@@ -92,17 +93,26 @@ object HomeFixtures {
                 ChartBarUi("Ноябрь", if (pages) state.snapshot.pages else QuantityUi(150))) else listOf(
                 ChartBarUi("Сентябрь", if (pages && unknown) QuantityUi(null) else QuantityUi(if (pages) { if (incomplete) 30 else 120 } else 240)),
                 ChartBarUi("Октябрь", if (pages && unknown) QuantityUi(null) else QuantityUi(if (pages) { if (incomplete) 40 else 165 } else 330)),
-                ChartBarUi("Ноябрь", if (pages && unknown) QuantityUi(null) else QuantityUi(if (pages) { if (incomplete) 70 else 89 } else 150, pages && incomplete),
+                ChartBarUi("Ноябрь", if (pages && unknown) QuantityUi(null) else QuantityUi(if (pages) { if (incomplete) 70 else 149 } else 269, pages && incomplete),
                     partialDate = pages && incomplete && state.period == HomePeriod.ALL,
                     detail = "Ноябрь 2026", exactDayPages = 40, monthOnlyPages = 30)).let { values ->
                         if (state.period == HomePeriod.MONTH) listOf(
-                            ChartBarUi("Октябрь · с 14-го", QuantityUi(if (pages) { if (incomplete) 40 else 165 } else 330)),
-                            ChartBarUi("Ноябрь · до 12-го", if (pages) QuantityUi(if (incomplete) 40 else 89, incomplete) else QuantityUi(150)))
-                        else values
+                            ChartBarUi("Октябрь · с 14-го", QuantityUi(if (pages) { if (incomplete) 40 else 105 } else 211)),
+                            ChartBarUi("Ноябрь · до 12-го", if (pages) QuantityUi(if (incomplete) 40 else 149, incomplete) else QuantityUi(269)))
+                    else values
                     }
         }
         // Only prepared windows are navigable; no generated reading events or date allocation.
-        val visible = if (state.interval < 0) listOf(ChartBarUi(when (state.grouping) { ChartGrouping.DAY -> "5 нояб."; ChartGrouping.WEEK -> "26 окт.–1 нояб."; ChartGrouping.MONTH -> "Декабрь 2025" }, QuantityUi(if (pages) 20 else 40))) else bars
+        val previous = when (state.grouping) {
+            ChartGrouping.DAY -> {
+                val labels = listOf("30 окт.", "31 окт.", "1 нояб.", "2 нояб.", "3 нояб.", "4 нояб.", "5 нояб.")
+                val amounts = if (pages) listOf(0, 0, 1, 7, 8, 30, 14) else listOf(0, 0, 1, 14, 15, 60, 29)
+                labels.mapIndexed { i, label -> ChartBarUi(label, QuantityUi(amounts[i])) }
+            }
+            ChartGrouping.WEEK -> listOf(ChartBarUi("19–25 окт.", QuantityUi(0)), ChartBarUi("26 окт.–1 нояб.", QuantityUi(1)))
+            ChartGrouping.MONTH -> listOf(ChartBarUi("Декабрь 2025", QuantityUi(if (pages) 150 else 300)))
+        }.map { bar -> if (pages && (unknown || incomplete && bar.amount.value != 0)) bar.copy(amount = QuantityUi(null)) else bar }
+        val visible = if (state.interval < 0) previous else bars
         val undated = if (pages && incomplete) when (state.grouping) {
             ChartGrouping.DAY, ChartGrouping.WEEK -> listOf("Ноябрь 2026 · 30 страниц · день неизвестен")
             ChartGrouping.MONTH -> listOf("2026 · 20 страниц · месяц неизвестен", "Дата неизвестна · 15 страниц · только за всё время")
@@ -115,12 +125,32 @@ object HomeFixtures {
     }
 
     fun heatDay(year: Int, month: Int, day: Int, empty: Boolean): HeatDayUi {
-        if (empty || year != 2026 || month != 11) return HeatDayUi(0)
+        if (empty) return HeatDayUi(0)
+        if (year == 2025 && month == 12 && day in 15..19) return HeatDayUi(60)
+        if (year != 2026) return HeatDayUi(0)
+        if (month == 1) return HeatDayUi(when (day) { 1 -> 135; 2, 3, 4 -> 95; 5 -> 60; else -> 0 })
+        if (month == 2 && day == 1) return HeatDayUi(60)
+        if (month == 8) return HeatDayUi(when (day) { 15 -> 60; 16 -> 61; else -> 0 })
+        if (month == 9 && day in 1..12) return HeatDayUi(20)
+        if (month == 10) return HeatDayUi(when (day) { 1, 15 -> 60; 2 -> 59; 14 -> 95; 16 -> 56; else -> 0 })
+        if (month != 11) return HeatDayUi(0)
         return when (day) {
             1 -> HeatDayUi(1); 2 -> HeatDayUi(14); 3 -> HeatDayUi(15); 4 -> HeatDayUi(60)
             5 -> HeatDayUi(29); 6 -> HeatDayUi(10); 7 -> HeatDayUi(56)
             8 -> HeatDayUi(0, 8); 9 -> HeatDayUi(4); 10 -> HeatDayUi(20)
             11 -> HeatDayUi(30); 12 -> HeatDayUi(30, 6); else -> HeatDayUi(0)
+        }
+    }
+
+    fun year(state: HomeUiState): Map<LocalDate, HeatDayUi> {
+        if (state.scenario == HomeScenario.EMPTY) return emptyMap()
+        if (state.scenario == HomeScenario.SINGLE) return if (state.calendarYear == 2026)
+            mapOf(LocalDate.of(2026, 11, 12) to HeatDayUi(25)) else emptyMap()
+        val first = LocalDate.of(state.calendarYear, 1, 1)
+        return (0 until first.lengthOfYear()).associate { offset ->
+            val date = first.plusDays(offset.toLong())
+            val data = heatDay(date.year, date.monthValue, date.dayOfMonth, false)
+            date to if (state.scenario == HomeScenario.UNKNOWN) data.copy(pagesWithoutTimer = 0) else data
         }
     }
 }

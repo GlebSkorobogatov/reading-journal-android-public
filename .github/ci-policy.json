@@ -1,6 +1,6 @@
 {
   "task": "UI-02",
-  "minimum_jvm": 18,
+  "minimum_jvm": 19,
   "minimum_compose": 32,
   "compose_apis": [
     26,
@@ -17,7 +17,9 @@
     "docs/CI.md",
     "docs/README.md",
     "docs/FILES.txt",
-    "docs/SHA256SUMS.txt"
+    "docs/SHA256SUMS.txt",
+    ".github/scripts/run_android_suite.sh",
+    ".github/scripts/test_android_evidence.py"
   ],
   "allowed_prefixes": [
     "app/src/main/java/ru/gleb/readingjournal/ui/home/",

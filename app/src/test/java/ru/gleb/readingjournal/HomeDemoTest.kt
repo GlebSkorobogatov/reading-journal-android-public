@@ -5,6 +5,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import ru.gleb.readingjournal.demo.*
 import ru.gleb.readingjournal.ui.home.*
+import java.time.LocalDate
 
 class HomeDemoTest {
     @Test fun xpFixturesUseApprovedLevelCostAndTitle() {
@@ -163,5 +164,24 @@ class HomeDemoTest {
         assertNull(restored.timer)
         assertEquals(PageState.UNKNOWN, restored.books.first().pages)
         assertEquals("atlas", reduceHomeDemo(restored, HomeEvent.Start("atlas")).timer?.bookId)
+    }
+    @Test fun preparedCalendarTotalsAndRecordsMatchThePeriodFixtures() {
+        val initial = HomeFixtures.create()
+        val year = HomeFixtures.year(initial)
+        assertEquals(1500, year.values.sumOf { it.minutes })
+        assertEquals(300, HomeFixtures.year(initial.copy(calendarYear = 2025)).values.sumOf { it.minutes })
+        val end = LocalDate.of(2026, 11, 12)
+        assertEquals(30, year.getValue(end).minutes)
+        assertEquals(150, year.filterKeys { !it.isBefore(end.minusDays(6)) && !it.isAfter(end) }.values.sumOf { it.minutes })
+        assertEquals(480, year.filterKeys { !it.isBefore(end.minusDays(29)) && !it.isAfter(end) }.values.sumOf { it.minutes })
+        assertEquals(960, year.filterKeys { !it.isBefore(end.minusDays(89)) && !it.isAfter(end) }.values.sumOf { it.minutes })
+        assertEquals(135, year.values.maxOf { it.minutes })
+        assertEquals(480, year.entries.groupBy { it.key.monthValue }.values.maxOf { month -> month.sumOf { it.value.minutes } })
+        assertTrue((1..12).all { year.getValue(LocalDate.of(2026, 9, it)).minutes >= 5 })
+        assertEquals(0, year.getValue(LocalDate.of(2026, 9, 13)).minutes)
+        val month = HomeFixtures.chart(initial.copy(grouping = ChartGrouping.MONTH))
+        assertEquals(150, month.bars.single().amount.value)
+        val monthWindow = HomeFixtures.chart(initial.copy(period = HomePeriod.MONTH, grouping = ChartGrouping.MONTH))
+        assertEquals(480, monthWindow.bars.sumOf { requireNotNull(it.amount.value) })
     }
 }

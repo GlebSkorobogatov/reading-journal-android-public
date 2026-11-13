@@ -2,6 +2,8 @@
 .github/ci-policy.json
 .github/scripts/ci_plan.py
 .github/scripts/full_gate.py
+.github/scripts/run_android_suite.sh
+.github/scripts/test_android_evidence.py
 .github/scripts/test_ci.py
 .github/scripts/verify_docs.py
 .github/scripts/verify_test_results.py

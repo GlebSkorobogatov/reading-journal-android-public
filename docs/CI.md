@@ -22,7 +22,7 @@
 |---|---|
 | Scope / docs / CI-script tests / git diff --check | Все обязательные |
 | Debug APK / lint / AndroidTest APK | Все, без отключений |
-| JVM | ≥18, 0 failures/errors/skips |
+| JVM | ≥19, 0 failures/errors/skips |
 | Compose API 26 | ≥32, полный suite, 0 failures/errors/skips |
 | Compose API 35 | ≥32, полный suite, 0 failures/errors/skips |
 | Compose API 36 | ≥32, полный suite, 0 failures/errors/skips |
@@ -60,4 +60,4 @@ Uploads имеют узкий allowlist: APK/его metadata, lint/JUnit, син
 
 ## UI-02 — Главная
 
-Владелец разрешил UI-02 от main `4c14b5dce1b9dc819d76c5c6368236320c442c3c`, включая Draft PR, Ready и полный CI. Политика разрешает только пути UI-02; прежние 3 JVM/10 Compose сохранены, добавлены 15 JVM/22 Compose: всего 18/32. Проверка относительно base не допускает снижения минимумов или удаления API. Синтетический путь CI-regression адаптирован к ui/home, тест будущего снижения использует текущий минимум +2. Полная архитектура, owner/public guards, XML validator и full_gate сохранены. Единственное расширение полного workflow — sourceSha в аргументах instrumentation для подписания реальных кадров. Merge и UI-03 не разрешены.
+Владелец разрешил UI-02 от main `4c14b5dce1b9dc819d76c5c6368236320c442c3c`, включая Draft PR, Ready и полный CI. Политика разрешает только пути UI-02; прежние 3 JVM/10 Compose сохранены, добавлены 16 JVM/22 Compose: всего 19/32. Проверка относительно base не допускает снижения минимумов или удаления API. Синтетический путь CI-regression адаптирован к ui/home, тест будущего снижения использует текущий минимум +2. Полная архитектура, owner/public guards, XML validator и full_gate сохранены. Полный workflow передаёт sourceSha в instrumentation и вызывает shell-helper: исходный exit-код suite сохраняется, кадры забираются до остановки эмулятора даже при FAIL. Три теста helper увеличивают CI-script regressions с 17 до 20; отсутствие evidence не превращается в успех. Merge и UI-03 не разрешены.

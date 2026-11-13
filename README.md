@@ -22,7 +22,7 @@
 
 ```sh
 ./gradlew :app:assembleDebug :app:lintDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest
-python3 .github/scripts/verify_test_results.py app/build/test-results/testDebugUnitTest --minimum 18
+python3 .github/scripts/verify_test_results.py app/build/test-results/testDebugUnitTest --minimum 19
 python3 .github/scripts/verify_docs.py
 python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
 git diff --check
@@ -41,7 +41,7 @@ Debug APK: `app/build/outputs/apk/debug/app-debug.apk`, applicationId `ru.gleb.r
 
 [Схема CI](docs/CI.md): быстрый workflow для PR и main, полный — по явному разрешению владельца, включая автоматический перевод PR в Ready через Codex. Повторные полные push/PR-запуски рабочей ветки устранены. Только стандартные Ubuntu runners, `contents: read`, без секретов; в приватном репозитории исполнение jobs заблокировано. До разрешения владельца CI не запускать. Артефакты быстрых запусков хранятся 7 дней, полных — 30.
 
-Полная проверка обязательна на итоговом Head перед приёмкой: Build/lint, минимум 18 JVM и 32 Compose-теста на **каждой** API 26/35/36, без failures/errors/skips. `Quick checks` не заменяет `Full acceptance`. Свежие CI-ссылки и APK добавляются только после фактического запуска; старые результаты не выдаются за новые.
+Полная проверка обязательна на итоговом Head перед приёмкой: Build/lint, минимум 19 JVM и 32 Compose-теста на **каждой** API 26/35/36, без failures/errors/skips. `Quick checks` не заменяет `Full acceptance`. Свежие CI-ссылки и APK добавляются только после фактического запуска; старые результаты не выдаются за новые.
 
 [Отчёт UI-01](docs/acceptance/UI-01.md) · [Galaxy A55](docs/acceptance/UI-01-GALAXY-A55.md) · [Подготовка переноса](docs/acceptance/MIGRATION-01.md) · [Публикация и новая среда Codex](docs/PUBLICATION.md).
 

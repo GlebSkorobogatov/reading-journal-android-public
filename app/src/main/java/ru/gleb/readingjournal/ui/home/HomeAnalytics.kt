@@ -231,7 +231,7 @@ fun HomeRecords(state: HomeUiState) {
         Triple("Лучший месяц по времени", if (empty) "—" else if (single) "25 мин" else "8 ч", s.bestMonth),
         Triple("Самая длинная серия", if (empty) "0 дней" else if (single) "1 день" else "12 дней", when {
             empty -> "0 дней"; single || state.period == HomePeriod.TODAY -> "1 день"
-            state.period == HomePeriod.WEEK -> "3 дня"; state.period == HomePeriod.MONTH -> "7 дней"; else -> "12 дней"
+            state.period == HomePeriod.WEEK -> "3 дня"; state.period == HomePeriod.MONTH -> "6 дней"; else -> "12 дней"
         }),
         Triple("Книга с максимальным временем", if (empty) "—" else if (single) "Атлас тихих открытий · 25 мин" else "Атлас тихих открытий · 15 ч",
             if (empty) "—" else "${state.books.first().title} · ${s.comparisonMinutes.firstOrNull() ?: 0} мин")

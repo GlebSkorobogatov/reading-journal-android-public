@@ -17,11 +17,7 @@ import java.time.LocalDate
 
 @Composable
 fun HomeRoute(state: HomeUiState, onEvent: (HomeEvent) -> Unit) {
-    val days = if (state.scenario == HomeScenario.EMPTY || state.calendarYear != 2026) emptyMap()
-        else if (state.scenario == HomeScenario.SINGLE) mapOf(LocalDate.of(2026, 11, 12) to HeatDayUi(25))
-        else (1..12).associate { day -> LocalDate.of(2026, 11, day) to HomeFixtures.heatDay(2026, 11, day, false).let {
-            if (state.scenario == HomeScenario.UNKNOWN) it.copy(pagesWithoutTimer = 0) else it } }
-    HomeScreen(state, HomeFixtures.chart(state), days, onEvent)
+    HomeScreen(state, HomeFixtures.chart(state), HomeFixtures.year(state), onEvent)
 }
 
 @Composable
