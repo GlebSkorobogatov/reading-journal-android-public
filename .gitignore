@@ -1,0 +1,33 @@
+/.gradle/
+/.kotlin/
+**/build/
+/local.properties
+/.idea/
+*.iml
+*.jks
+*.keystore
+/captures/
+
+# Python CI helper bytecode
+__pycache__/
+*.py[cod]
+
+# Private local configuration, signing material, user data and downloaded outputs
+/.android/
+/.codex/
+.env
+.env.*
+.git-credentials
+key.properties
+credentials*.json
+google-services.json
+*.p12
+*.pfx
+*.pem
+*.key
+*.db
+*.sqlite
+*.sqlite3
+*.apk
+*.aab
+*.log

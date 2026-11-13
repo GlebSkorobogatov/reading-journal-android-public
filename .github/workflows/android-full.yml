@@ -1,0 +1,122 @@
+name: Android full
+on:
+  pull_request:
+    types: [ready_for_review]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      minimum_jvm: ${{ steps.plan.outputs.minimum_jvm }}
+      minimum_compose: ${{ steps.plan.outputs.minimum_compose }}
+      apis: ${{ steps.plan.outputs.apis }}
+    steps:
+      - name: Require explicit owner request
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: test "$ACTOR" = "$OWNER"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: plan
+        env:
+          CI_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+        run: python3 .github/scripts/ci_plan.py --mode full
+      - run: python3 .github/scripts/verify_docs.py
+      - run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+      - run: git diff --check
+  build:
+    needs: checks
+    uses: ./.github/workflows/android-build.yml
+    with:
+      minimum-jvm: ${{ fromJSON(needs.checks.outputs.minimum_jvm) }}
+      retention-days: 30
+  compose:
+    needs: [checks, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        api: ${{ fromJSON(needs.checks.outputs.apis) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17.0.21+9'
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          cmdline-tools-version: '16111833'
+          packages: ''
+      - run: android --no-metrics --sdk="$ANDROID_HOME" sdk install platform-tools platforms/android-37.0 build-tools/36.0.0
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          emulator-build: '16863232'
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader -noaudio -no-boot-anim -camera-back none -no-metrics
+          pre-emulator-launch-script: echo '::notice::System image and AVD prepared; launching emulator.'
+          script: |
+            set -eu
+            echo '::notice::Emulator booted; starting full instrumentation suite.'
+            mkdir -p app/build
+            bash -o pipefail -c './gradlew :app:connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true 2>&1 | tee app/build/connected-debug.log'
+            mkdir -p app/build/emulator-screenshots
+            adb exec-out run-as ru.gleb.readingjournal tar -C files -cf - screenshots > app/build/screenshots.tar
+            tar -xf app/build/screenshots.tar -C app/build/emulator-screenshots
+      - name: Verify Android results
+        if: always()
+        env:
+          MINIMUM: ${{ needs.checks.outputs.minimum_compose }}
+        run: python3 .github/scripts/verify_test_results.py app/build/outputs/androidTest-results/connected/debug --minimum "$MINIMUM" --diagnostic-log app/build/connected-debug.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: compose-api-${{ matrix.api }}
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            app/build/emulator-screenshots/
+            app/build/connected-debug.log
+          retention-days: 30
+          if-no-files-found: error
+  full-acceptance:
+    name: Full acceptance
+    needs: [checks, build, compose]
+    if: ${{ always() && !github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python3 .github/scripts/full_gate.py

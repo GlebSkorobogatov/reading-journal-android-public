@@ -1,0 +1,56 @@
+name: Android quick
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  changes:
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      android: ${{ steps.plan.outputs.android }}
+      minimum_jvm: ${{ steps.plan.outputs.minimum_jvm }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: plan
+        env:
+          CI_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_BEFORE: ${{ github.event.before }}
+        run: python3 .github/scripts/ci_plan.py --mode quick
+      - run: python3 .github/scripts/verify_docs.py
+      - run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+      - run: git diff --check
+  build:
+    needs: changes
+    if: ${{ needs.changes.outputs.android == 'true' }}
+    uses: ./.github/workflows/android-build.yml
+    with:
+      minimum-jvm: ${{ fromJSON(needs.changes.outputs.minimum_jvm) }}
+      retention-days: 7
+  quick-checks:
+    name: Quick checks
+    needs: [changes, build]
+    if: ${{ always() && !github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - env:
+          PLAN: ${{ needs.changes.result }}
+          ANDROID: ${{ needs.changes.outputs.android }}
+          BUILD: ${{ needs.build.result }}
+        run: |
+          test "$PLAN" = success
+          if [ "$ANDROID" = true ]; then test "$BUILD" = success; else test "$BUILD" = skipped; fi
+          echo 'Quick checks passed. Full Android matrix: NOT RUN; this run is not final acceptance.' >> "$GITHUB_STEP_SUMMARY"
