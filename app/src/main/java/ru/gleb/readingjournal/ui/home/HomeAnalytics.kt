@@ -48,7 +48,7 @@ fun HomeDynamics(state: HomeUiState, window: ChartWindowUi, onEvent: (HomeEvent)
     val maximum = window.bars.mapNotNull { it.amount.value }.maxOrNull()?.coerceAtLeast(1) ?: 1
     Text("${maximum} $unit", style = JournalType.caption, color = c.textSecondary)
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("reading-chart"),
-        horizontalArrangement = Arrangement.spacedBy(Space.md), verticalAlignment = Alignment.Bottom) {
+        horizontalArrangement = Arrangement.spacedBy(Space.md), verticalAlignment = Alignment.Top) {
         window.bars.forEachIndexed { index, bar ->
             val description = "${bar.label}: ${bar.amount.accessible} $unit" +
                 if (bar.partialDate) ". Есть страницы без точного дня" else ""
@@ -63,7 +63,7 @@ fun HomeDynamics(state: HomeUiState, window: ChartWindowUi, onEvent: (HomeEvent)
                 }.semantics(mergeDescendants = true) { contentDescription = description },
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Space.sm)) {
                 Text(bar.amount.text, style = JournalType.card)
-                Box(Modifier.fillMaxWidth().height(128.dp), contentAlignment = Alignment.BottomCenter) {
+                Box(Modifier.fillMaxWidth().height(128.dp).testTag("plot-area-$index"), contentAlignment = Alignment.BottomCenter) {
                     if (bar.amount.value == null) {
                         Text("?", Modifier.align(Alignment.Center).testTag("unknown-bar-$index"), style = JournalType.number, color = c.textSecondary)
                     } else if (bar.amount.value > 0) Box(Modifier.width(36.dp)
@@ -233,7 +233,7 @@ fun HomeRecords(state: HomeUiState) {
             empty -> "0 дней"; single || state.period == HomePeriod.TODAY -> "1 день"
             state.period == HomePeriod.WEEK -> "3 дня"; state.period == HomePeriod.MONTH -> "6 дней"; else -> "12 дней"
         }),
-        Triple("Книга с максимальным временем", if (empty) "—" else if (single) "Атлас тихих открытий · 25 мин" else "Атлас тихих открытий · 15 ч",
+        Triple("Книга с максимальным временем", if (empty) "—" else "${state.books.first().title} · ${if (single) "25 мин" else "15 ч"}",
             if (empty) "—" else "${state.books.first().title} · ${s.comparisonMinutes.firstOrNull() ?: 0} мин")
     )
     records.forEachIndexed { index, (title, all, selected) ->

@@ -159,28 +159,34 @@ private fun HomeMetrics(state: HomeUiState, onEvent: (HomeEvent) -> Unit) {
     val snapshot = state.snapshot
     val timeNumber = snapshot.time.removeSuffix(" мин").removeSuffix(" ч").replace(" ч ", ":")
     val timeUnit = when { snapshot.time.contains("ч ") -> "ч : мин"; snapshot.time.endsWith("ч") -> "часов"; else -> "минут" }
+    val dayUnit = russianForm(state.streak, "день", "дня", "дней")
     val cards: @Composable () -> Unit = {
         MetricTile("Время", timeNumber, timeUnit, snapshot.time, "metric-time", onEvent)
-        MetricTile("Страницы", snapshot.pages.text, "страниц", snapshot.pages.accessible, "metric-pages", onEvent)
-        MetricTile("Текущая серия", state.streak.toString(), "дня · ≥5 мин в день",
-            "Текущая серия ${state.streak} дня. Не зависит от периода статистики", "metric-streak", onEvent)
+        MetricTile("Страницы", snapshot.pages.text, "стр.", snapshot.pages.accessible, "metric-pages", onEvent)
+        MetricTile("Текущая серия", state.streak.toString(), dayUnit,
+            "Текущая серия ${state.streak} $dayUnit. Не зависит от периода статистики", "metric-streak", onEvent)
     }
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("home-metrics")) {
-        if (LocalDensity.current.fontScale > 1.1f || maxWidth < 350.dp) {
-            Column(verticalArrangement = Arrangement.spacedBy(Space.md)) { cards() }
-        } else Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-            Box(Modifier.weight(1f)) { MetricTile("Время", timeNumber, timeUnit, snapshot.time, "metric-time", onEvent) }
-            Box(Modifier.weight(1f)) { MetricTile("Страницы", snapshot.pages.text, "страниц", snapshot.pages.accessible, "metric-pages", onEvent) }
-            Box(Modifier.weight(1f)) { MetricTile("Текущая серия", state.streak.toString(), "дня · ≥5 мин в день",
-                "Текущая серия ${state.streak} дня. Не зависит от периода статистики", "metric-streak", onEvent) }
+        val stacked = LocalDensity.current.fontScale > 1.1f || maxWidth < 350.dp
+        Column(verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+            if (stacked) Column(verticalArrangement = Arrangement.spacedBy(Space.md)) { cards() }
+            else Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                Box(Modifier.weight(1f).fillMaxHeight()) { MetricTile("Время", timeNumber, timeUnit, snapshot.time,
+                    "metric-time", onEvent, Modifier.fillMaxHeight()) }
+                Box(Modifier.weight(1f).fillMaxHeight()) { MetricTile("Страницы", snapshot.pages.text, "стр.", snapshot.pages.accessible,
+                    "metric-pages", onEvent, Modifier.fillMaxHeight()) }
+                Box(Modifier.weight(1f).fillMaxHeight()) { MetricTile("Текущая серия", state.streak.toString(), dayUnit,
+                    "Текущая серия ${state.streak} $dayUnit. Не зависит от периода статистики", "metric-streak", onEvent, Modifier.fillMaxHeight()) }
+            }
+            Text("День серии — не менее 5 минут чтения", style = JournalType.caption, color = LocalJournalColors.current.textSecondary)
         }
     }
 }
 
 @Composable
 private fun MetricTile(title: String, number: String, unit: String, description: String, tag: String,
-    onEvent: (HomeEvent) -> Unit) {
-    JournalCard(Modifier.fillMaxWidth().testTag(tag).clickable(role = Role.Button) { onEvent(HomeEvent.Explain(title, description)) }) {
+    onEvent: (HomeEvent) -> Unit, modifier: Modifier = Modifier) {
+    JournalCard(modifier.fillMaxWidth().testTag(tag).clickable(role = Role.Button) { onEvent(HomeEvent.Explain(title, description)) }) {
         Text(number, style = JournalType.number)
         Text(unit, style = JournalType.caption, color = LocalJournalColors.current.textSecondary)
         Text(title, style = JournalType.secondary)
@@ -194,8 +200,8 @@ private fun HomeAccordion(section: HomeSection, state: HomeUiState, chart: Chart
     val c = LocalJournalColors.current
     val summary = when (section) {
         HomeSection.DYNAMICS -> "${state.snapshot.time} · ${state.snapshot.pages.text} стр."
-        HomeSection.CALENDAR -> "${state.calendarYear} · текущая серия ${state.streak} дня"
-        HomeSection.COMPARISON -> "${state.books.size} книги · по записанному времени"
+        HomeSection.CALENDAR -> "${state.calendarYear} · текущая серия ${state.streak} ${russianForm(state.streak, "день", "дня", "дней")}"
+        HomeSection.COMPARISON -> "${state.books.size} ${russianForm(state.books.size, "книга", "книги", "книг")} · по записанному времени"
         HomeSection.SPEED -> if (state.snapshot.speed == "—") "Недостаточно данных" else state.snapshot.speed
         HomeSection.RECORDS -> "Лучший день · ${state.snapshot.bestDayTime}"
     }
@@ -224,6 +230,13 @@ private fun HomeAccordion(section: HomeSection, state: HomeUiState, chart: Chart
             }
         }
     }
+}
+
+private fun russianForm(count: Int, one: String, few: String, many: String): String = when {
+    count % 100 in 11..14 -> many
+    count % 10 == 1 -> one
+    count % 10 in 2..4 -> few
+    else -> many
 }
 
 @Composable

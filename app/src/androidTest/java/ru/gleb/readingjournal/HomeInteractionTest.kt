@@ -149,10 +149,14 @@ class HomeInteractionTest {
         event(HomeEvent.Measure(ChartMeasure.PAGES))
         event(HomeEvent.Grouping(ChartGrouping.MONTH))
         section(HomeSection.DYNAMICS)
-        scroll("chart-bar-2").assertIsDisplayed()
+        scroll("reading-chart")
+        rule.onNodeWithTag("chart-bar-2").performScrollTo().assertIsDisplayed()
             .assertContentDescriptionContains("Есть страницы без точного дня", substring = true)
         rule.onNodeWithTag("quantity-marker-2", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("date-marker-2", useUnmergedTree = true).assertIsDisplayed()
+        val baseline = rule.onNodeWithTag("plot-area-0", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.bottom
+        for (index in 1..2) assertEquals("Bars share a baseline despite independent markers", baseline,
+            rule.onNodeWithTag("plot-area-$index", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.bottom, 1f)
         rule.onNodeWithTag("chart-bar-2").performScrollTo().performClick()
         rule.onNode(hasText("Есть страницы без точного дня: 40 с точными днями + 30", substring = true)).assertIsDisplayed()
         rule.onNodeWithText("Уточнить страницы").assertIsEnabled()
