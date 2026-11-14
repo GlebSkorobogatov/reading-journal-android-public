@@ -1,7 +1,9 @@
 package ru.gleb.readingjournal
 
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
@@ -62,8 +64,9 @@ class HomeInteractionTest {
             val coordinates = close.layoutInfo.coordinates
             val bitmap = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
             try {
-                assertTrue("The complete close action stays above system navigation",
-                    coordinates.localToScreen(Offset.Zero).y + coordinates.size.height <= bitmap.height - navigationBottom + 1f)
+                val bottom = coordinates.localToScreen(Offset.Zero).y + coordinates.size.height
+                assertTrue("Close action bottom=$bottom; safe bottom=${bitmap.height - navigationBottom}; inset=$navigationBottom",
+                    bottom.isFinite() && bottom <= bitmap.height - navigationBottom + 1f)
             } finally { bitmap.recycle() }
             rule.runOnUiThread {
                 assertEquals(before.books, model().state.value.books)
@@ -96,6 +99,20 @@ class HomeInteractionTest {
             }
         }
         scroll("home-xp").assert(hasAnyDescendant(hasText("Уровень 8 · Ученик")))
+        scroll("home-metrics")
+        listOf("metric-pages", "metric-completions", "metric-streak").forEach { tag ->
+            val layouts = mutableListOf<TextLayoutResult>()
+            rule.onNodeWithTag("$tag-label", useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            assertTrue("Metric label has measured text", layouts.isNotEmpty())
+            layouts.forEach { layout ->
+                for (line in 0 until layout.lineCount) {
+                    val firstWord = layout.layoutInput.text.text.substring(layout.getLineStart(line), layout.getLineEnd(line))
+                        .trim().substringBefore(' ')
+                    assertTrue("Metric words must not wrap to a lone letter: $firstWord", firstWord.length > 1)
+                }
+            }
+        }
     }
     @Test fun onlyOneOfFourSectionsCanRemainExpandedAndItCanCollapse() {
         HomeSection.entries.forEachIndexed { index, value ->

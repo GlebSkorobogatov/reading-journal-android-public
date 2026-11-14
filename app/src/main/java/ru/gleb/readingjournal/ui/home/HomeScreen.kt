@@ -16,8 +16,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -28,7 +32,10 @@ import java.time.LocalDate
 fun HomeScreen(state: HomeUiState, chart: ChartWindowUi, activity: Map<LocalDate, HeatDayUi>,
     onEvent: (HomeEvent) -> Unit) {
     // Capture the Activity inset before opening the separate modal window (API 26).
-    val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val density = LocalDensity.current
+    val platformBottom = ViewCompat.getRootWindowInsets(LocalView.current.rootView)
+        ?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
+    val navigationBottom = with(density) { maxOf(platformBottom, WindowInsets.navigationBars.getBottom(this)).toDp() }
     val scroll = rememberLazyListState()
     var previousScenario by rememberSaveable { mutableStateOf(state.scenario.name) }
     LaunchedEffect(state.scenario) {
@@ -84,6 +91,7 @@ fun HomeScreen(state: HomeUiState, chart: ChartWindowUi, activity: Map<LocalDate
 private fun HomeDemoSheet(navigationBottom: androidx.compose.ui.unit.Dp, onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, shape = JournalShape.sheet,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = LocalJournalColors.current.surface, tonalElevation = 0.dp,
         contentWindowInsets = { WindowInsets.safeDrawing.only(WindowInsetsSides.Top) }) {
         Column(Modifier.fillMaxWidth().padding(bottom = navigationBottom).imePadding()
@@ -177,7 +185,8 @@ private fun MetricTile(title: String, number: String, unit: String, description:
         Text(number, style = JournalType.number)
         Text(unit, style = JournalType.caption, color = LocalJournalColors.current.textSecondary)
         Text(title, Modifier.testTag("$tag-label"),
-            style = JournalType.secondary.copy(localeList = LocaleList("ru"), hyphens = Hyphens.Auto))
+            style = JournalType.secondary.copy(localeList = LocaleList("ru"), hyphens = Hyphens.Auto,
+                lineBreak = LineBreak.Paragraph))
     }
 }
 

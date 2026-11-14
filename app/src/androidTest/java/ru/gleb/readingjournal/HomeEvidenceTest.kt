@@ -12,6 +12,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import ru.gleb.readingjournal.app.*
@@ -24,6 +25,14 @@ import kotlin.math.abs
 /** Real emulator captures from this installed APK, never Preview or a generated mockup. */
 class HomeEvidenceTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
+    @Before fun usePhoneTouchInput() {
+        // A phone tap must not inherit the emulator hardware keyboard's focused
+        // drag-handle tooltip. Keep the real component and verify no popup remains.
+        InstrumentationRegistry.getInstrumentation().setInTouchMode(true)
+        rule.waitForIdle()
+        rule.waitUntil(5_000) { rule.activity.window.decorView.isInTouchMode }
+        assertTrue("Phone evidence uses touch mode", rule.activity.window.decorView.isInTouchMode)
+    }
     private fun event(event: HomeEvent) {
         rule.runOnUiThread { ViewModelProvider(rule.activity)[HomeDemoViewModel::class.java].dispatch(event) }
         rule.waitForIdle()
@@ -169,8 +178,10 @@ class HomeEvidenceTest {
         // A real touch outside the handle dismisses its transient hover tooltip.
         rule.onNodeWithTag("home-sheet-body").performTouchInput { click() }
         rule.onNodeWithTag("home-sheet-close").performScrollTo().assertIsDisplayed()
-        SystemClock.sleep(3_000)
+        // Tooltip dismissal uses Compose's test clock, not the native uptime clock.
+        rule.mainClock.advanceTimeBy(5_000)
         rule.waitForIdle()
+        rule.onNode(isPopup()).assertDoesNotExist()
     }
 
     private fun captureFeed(name: String) {
@@ -262,7 +273,7 @@ class HomeEvidenceTest {
         File(directory, "ui02-metadata.txt").appendText(
             "$filename | sourceSha=$sourceSha | version=${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE}) | " +
                 "API=${Build.VERSION.SDK_INT} | theme=${name.substringBefore('-')} | scenario=${ViewModelProvider(context)[HomeDemoViewModel::class.java].state.value.scenario.name} | capture=$name | size=${bitmap.width}x${bitmap.height} | fontScale=${config.fontScale} | orientation=${config.orientation} | " +
-                "density=${context.resources.displayMetrics.densityDpi} | locale=${config.locales[0]} | emulator; not A55\n")
+                "density=${context.resources.displayMetrics.densityDpi} | locale=${config.locales[0]} | inputMode=${if (context.window.decorView.isInTouchMode) "touch" else "keyboard"} | emulator; not A55\n")
     }
     private fun command(value: String): String {
         val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(value)
