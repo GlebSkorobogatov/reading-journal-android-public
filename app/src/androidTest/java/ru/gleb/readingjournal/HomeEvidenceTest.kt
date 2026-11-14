@@ -4,6 +4,7 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.Build
+import android.os.SystemClock
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.semantics.SemanticsActions
@@ -22,12 +23,14 @@ import kotlin.math.abs
 /** Screenshots come only from the installed APK on the actual CI emulator. No golden claims. */
 class HomeEvidenceTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
-    private fun event(event: HomeEvent) { rule.runOnUiThread {
-        ViewModelProvider(rule.activity)[HomeDemoViewModel::class.java].dispatch(event)
-    } }
-    private fun theme(mode: ThemeMode) { rule.runOnUiThread {
-        ViewModelProvider(rule.activity)[ShellViewModel::class.java].selectTheme(mode)
-    } }
+    private fun event(event: HomeEvent) {
+        rule.runOnUiThread { ViewModelProvider(rule.activity)[HomeDemoViewModel::class.java].dispatch(event) }
+        rule.waitForIdle()
+    }
+    private fun theme(mode: ThemeMode) {
+        rule.runOnUiThread { ViewModelProvider(rule.activity)[ShellViewModel::class.java].selectTheme(mode) }
+        rule.waitForIdle()
+    }
     private fun scroll(tag: String) {
         rule.onNodeWithTag("home-feed").performScrollToNode(hasTestTag(tag))
         rule.onNodeWithTag(tag).assertIsDisplayed()
@@ -51,12 +54,34 @@ class HomeEvidenceTest {
             for (scenario in listOf(HomeScenario.RUNNING, HomeScenario.PAUSED)) {
                 event(HomeEvent.Scenario(scenario))
                 rule.onNodeWithTag("home-feed").performScrollToIndex(0)
+                rule.onNodeWithTag("timer-atlas").assertIsDisplayed()
                 screenshot("${mode.name}-${scenario.name}")
                 rule.onNode(hasText("Библиотека") and hasClickAction()).performClick()
                 rule.onNodeWithTag("home-mini-timer").assertIsDisplayed()
                 screenshot("${mode.name}-${scenario.name}-mini-library")
                 rule.onNodeWithTag("home-mini-timer").performClick()
+                rule.waitForIdle()
+                rule.onNodeWithTag("timer-atlas").assertIsDisplayed()
             }
+            event(HomeEvent.Finish)
+            rule.onNodeWithTag("home-sheet").assertIsDisplayed()
+            screenshot("${mode.name}-finishing-sheet")
+            event(HomeEvent.Dismiss)
+            for (scenario in listOf(HomeScenario.SINGLE, HomeScenario.PENDING)) {
+                event(HomeEvent.Scenario(scenario))
+                captureFeed("${mode.name}-${scenario.name}")
+            }
+            scroll("start-atlas")
+            rule.onNodeWithTag("pending-atlas").assertIsDisplayed()
+            rule.onNodeWithTag("start-atlas").assertIsNotEnabled()
+            screenshot("${mode.name}-pending-book")
+            rule.onNodeWithTag("home-feed").performScrollToNode(hasText("Завершить запись сеанса"))
+            rule.onNodeWithText("Завершить запись сеанса").performClick()
+            rule.onNodeWithText("Не помню страницы").performScrollTo().performClick()
+            scroll("start-atlas")
+            rule.onNodeWithTag("unknown-atlas").assertIsDisplayed()
+            rule.onNodeWithTag("start-atlas").assertIsEnabled()
+            screenshot("${mode.name}-unknown-book")
             event(HomeEvent.Scenario(HomeScenario.EMPTY))
             captureFeed("${mode.name}-empty")
             event(HomeEvent.Scenario(HomeScenario.UNKNOWN))
@@ -70,6 +95,9 @@ class HomeEvidenceTest {
             screenshot("${mode.name}-incomplete-month-markers")
             scroll("undated-toggle")
             event(HomeEvent.ToggleUndated)
+            scroll("undated-1")
+            rule.onNodeWithTag("undated-0").assertIsDisplayed()
+            rule.onNodeWithTag("undated-1").assertIsDisplayed()
             screenshot("${mode.name}-undated")
         }
     }
@@ -93,6 +121,9 @@ class HomeEvidenceTest {
                         }
                         event(HomeEvent.Scenario(HomeScenario.LONG_TEXT))
                         event(HomeEvent.Start("atlas"))
+                        rule.onNodeWithTag("home-feed").performScrollToIndex(0)
+                        rule.onNodeWithTag("home-books-heading").assertIsDisplayed()
+                        screenshot("${mode.name}-font$fontScale-orientation$orientation-heading")
                         scroll("timer-toggle")
                         rule.onNodeWithTag("timer-toggle").assertIsEnabled().performClick()
                         rule.onNodeWithTag("home-mini-timer").assertIsDisplayed()
@@ -108,6 +139,8 @@ class HomeEvidenceTest {
                             assertTrue("Touch width >=48dp", size.width / density >= 47.5f)
                             assertTrue("Touch height >=48dp", size.height / density >= 47.5f)
                         }
+                        scroll("timer-finish")
+                        rule.onNodeWithTag("timer-finish").assertIsDisplayed().assertIsEnabled()
                         screenshot("${mode.name}-font$fontScale-orientation$orientation-reduced-motion")
                         event(HomeEvent.Section(HomeSection.SPEED))
                         event(HomeEvent.Period(HomePeriod.MONTH))
@@ -150,14 +183,37 @@ class HomeEvidenceTest {
     }
     private fun screenshot(name: String) {
         rule.waitForIdle()
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        // Compose idleness does not wait for SurfaceFlinger, window fades or Android's
+        // rotation animation. Require a stable, foreground app image, never an ANR
+        // dialog, launcher frame or half-rendered navigation transition.
+        var previous: Bitmap? = null
+        var stableSince = SystemClock.uptimeMillis()
+        try {
+            rule.waitUntil(15_000) {
+                val current = requireNotNull(automation.takeScreenshot())
+                val unchanged = previous?.sameAs(current) == true
+                previous?.recycle()
+                previous = current
+                val foreground = automation.rootInActiveWindow?.packageName?.toString() == BuildConfig.APPLICATION_ID
+                if (!unchanged || !foreground) stableSince = SystemClock.uptimeMillis()
+                val stable = foreground && unchanged && SystemClock.uptimeMillis() - stableSince >= 750
+                if (!stable) SystemClock.sleep(100)
+                stable
+            }
+            writeScreenshot(name, requireNotNull(previous))
+        } finally {
+            previous?.recycle()
+        }
+    }
+    private fun writeScreenshot(name: String, bitmap: Bitmap) {
         val context = rule.activity
         val sourceSha = InstrumentationRegistry.getArguments().getString("sourceSha") ?: "local-uncommitted"
         val directory = File(context.filesDir, "screenshots")
         check(directory.exists() || directory.mkdirs())
         val filename = "ui02-api${Build.VERSION.SDK_INT}-${sourceSha.take(8)}-$name.png"
         File(directory, filename).outputStream().use { stream ->
-            check(requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
-                .compress(Bitmap.CompressFormat.PNG, 100, stream))
+            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))
         }
         val config = context.resources.configuration
         File(directory, "ui02-metadata.txt").appendText(
