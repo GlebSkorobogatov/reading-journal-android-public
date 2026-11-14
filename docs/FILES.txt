@@ -50,12 +50,14 @@ docs/PUBLICATION.md
 docs/README.md
 docs/SHA256SUMS.txt
 docs/acceptance/MIGRATION-01.md
+docs/acceptance/REV-01.md
 docs/acceptance/UI-01-GALAXY-A55.md
 docs/acceptance/UI-01.md
 docs/audit/PRODUCT_AUDIT.md
 docs/audit/Читательский_дневник_каталог_достижений_А3_утверждён.md
 docs/decisions/APPROVED_SIMPLIFICATIONS.md
 docs/decisions/DECISION_REGISTER.md
+docs/decisions/REV-01-reading-without-timer.md
 docs/decisions/adr/ADR-01-single-module.md
 docs/decisions/adr/ADR-02-platform-stack.md
 docs/decisions/adr/ADR-03-room-source-of-truth.md
@@ -70,6 +72,7 @@ docs/decisions/adr/ADR-11-ci-levels.md
 docs/decisions/adr/README.md
 docs/decisions/Дорожная_карта_Читательский_дневник_UI_first_v2.md
 docs/decisions/Читательский_дневник_спецификация_v2.04.md
+docs/decisions/Читательский_дневник_спецификация_v3.0.md
 docs/design/APPROVED_REFERENCE.md
 docs/design/README.md
 gradle.properties
