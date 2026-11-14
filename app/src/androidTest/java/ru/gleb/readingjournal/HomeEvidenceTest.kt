@@ -73,6 +73,7 @@ class HomeEvidenceTest {
             screenshot("${mode.name}-independent-bookmark")
             rule.onNodeWithTag("record-reading-atlas").performClick()
             rule.onNodeWithTag("home-sheet").assertIsDisplayed()
+            settleSheet()
             screenshot("${mode.name}-record-reading-entry")
             close()
             event(HomeEvent.Scenario(HomeScenario.MULTIPLE))
@@ -88,6 +89,7 @@ class HomeEvidenceTest {
             rule.onNodeWithTag("heat-2026-12-31").performScrollTo()
             screenshot("${mode.name}-calendar-year-end")
             rule.onNodeWithTag("heat-2026-11-12").performScrollTo().performClick()
+            settleSheet()
             screenshot("${mode.name}-day-entry-by-book")
             close()
             event(HomeEvent.Section(HomeSection.DYNAMICS))
@@ -117,6 +119,7 @@ class HomeEvidenceTest {
                         event(HomeEvent.Scenario(HomeScenario.LONG_TEXT))
                         rule.onNodeWithTag("home-feed").performScrollToIndex(0)
                         rule.onNodeWithTag("home-books-heading").assertIsDisplayed()
+                        val actionAlreadyVisible = isFullyVisible("record-reading-atlas")
                         screenshot("${mode.name}-font$fontScale-orientation$orientation-heading")
                         scroll("record-reading-atlas")
                         rule.onNodeWithTag("record-reading-atlas").assertIsEnabled()
@@ -130,9 +133,11 @@ class HomeEvidenceTest {
                             assertTrue("Touch width >=48dp", size.width / density >= 47.5f)
                             assertTrue("Touch height >=48dp", size.height / density >= 47.5f)
                         }
-                        screenshot("${mode.name}-font$fontScale-orientation$orientation-record-action")
-                        scroll("metric-completions")
-                        screenshot("${mode.name}-font$fontScale-orientation$orientation-metrics")
+                        // When the first viewport already contains the complete action,
+                        // it proves both states. Do not save an identical second PNG.
+                        if (!actionAlreadyVisible) screenshot("${mode.name}-font$fontScale-orientation$orientation-record-action")
+                        scroll("metric-pages")
+                        captureUntil("${mode.name}-font$fontScale-orientation$orientation-metrics", "metric-streak-label")
                         event(HomeEvent.Section(HomeSection.RECORDS))
                         event(HomeEvent.Period(HomePeriod.MONTH))
                         rule.onNodeWithContentDescription("Настройки").performClick()
@@ -151,6 +156,21 @@ class HomeEvidenceTest {
                 config.orientation == originalOrientation && abs(config.fontScale - originalScale) < .01f
             }
         }
+    }
+
+    private fun isFullyVisible(tag: String): Boolean {
+        val node = rule.onAllNodesWithTag(tag).fetchSemanticsNodes().firstOrNull() ?: return false
+        val top = node.layoutInfo.coordinates.positionInRoot().y
+        val viewport = rule.onNodeWithTag("home-feed").fetchSemanticsNode().boundsInRoot
+        return top >= viewport.top && top + node.layoutInfo.coordinates.size.height <= viewport.bottom
+    }
+
+    private fun settleSheet() {
+        // A real touch outside the handle dismisses its transient hover tooltip.
+        rule.onNodeWithTag("home-sheet-body").performTouchInput { click() }
+        rule.onNodeWithTag("home-sheet-close").performScrollTo().assertIsDisplayed()
+        SystemClock.sleep(3_000)
+        rule.waitForIdle()
     }
 
     private fun captureFeed(name: String) {

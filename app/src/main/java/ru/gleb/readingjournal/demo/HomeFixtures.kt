@@ -59,6 +59,9 @@ object HomeFixtures {
                     RecordUi("Лучший месяц по страницам", "Ноябрь · 12 стр.", "Ноябрь · 12 стр."),
                     RecordUi("Самая длинная серия", "1 день", "1 день"),
                     RecordUi("Книга с наибольшим количеством прочитанных страниц", "Атлас тихих открытий · 12 стр.", "Атлас тихих открытий · 12 стр.")))
+            scenario == HomeScenario.LONG_TEXT -> snapshot.copy(records = snapshot.records.map { record ->
+                record.copy(allTime = longTitle(record.allTime, selectedBooks), selected = longTitle(record.selected, selectedBooks))
+            })
             else -> snapshot
         } }
         return HomeUiState(scenario, selectedBooks, when {
@@ -161,7 +164,11 @@ object HomeFixtures {
         HomeScenario.EMPTY, HomeScenario.NO_PAGES, HomeScenario.HISTORICAL -> emptyMap()
         HomeScenario.SINGLE -> if (state.calendarYear == 2026) mapOf(LocalDate.of(2026, 11, 12) to
             HeatDayUi(12, listOf(DayBookUi("atlas", "Атлас тихих открытий", 12)))) else emptyMap()
-        else -> calendar.filterKeys { it.year == state.calendarYear }
+        else -> calendar.filterKeys { it.year == state.calendarYear }.mapValues { (_, day) ->
+            day.copy(books = day.books.map { book ->
+                book.copy(title = state.books.firstOrNull { it.id == book.bookId }?.title ?: book.title)
+            })
+        }
     }
 
     fun completionSummary(state: HomeUiState): List<String> = when (state.scenario) {
@@ -169,6 +176,9 @@ object HomeFixtures {
         HomeScenario.HISTORICAL -> listOf("Северный свет · 2024 · страницы —", "Дом бумажных окон · сентябрь 2026 · страницы —")
         else -> listOf("Атлас тихих открытий · 2 завершённых цикла", "Сад между строк · 2 завершённых цикла",
             "Письма с острова · 595 подтверждённых страниц · завершено", "Северный свет · 2024 · страницы —",
-            "Дом бумажных окон · сентябрь 2026 · страницы —")
+            "Дом бумажных окон · сентябрь 2026 · страницы —").map { longTitle(it, state.books) }
     }
+
+    private fun longTitle(text: String, displayBooks: List<HomeBookUi>): String =
+        text.replace(books.first().title, displayBooks.firstOrNull { it.id == "atlas" }?.title ?: books.first().title)
 }

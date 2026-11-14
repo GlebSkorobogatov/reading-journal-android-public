@@ -6,6 +6,10 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
+import androidx.compose.ui.geometry.Offset
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -48,10 +52,19 @@ class HomeInteractionTest {
     }
     @Test fun everyRecordButtonOpensItsBookWithoutSavingData() {
         val before = model().state.value
+        val navigationBottom = ViewCompat.getRootWindowInsets(rule.activity.window.decorView)
+            ?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: error("Missing system insets")
         listOf("atlas", "garden", "coast").forEach { id ->
             scroll("record-reading-$id").assertIsEnabled().performClick()
             rule.onNodeWithTag("home-sheet").assertTextEquals("Записать чтение · демонстрационный вход")
             rule.onNodeWithTag("home-sheet-body").assertTextContains("Книга: $id", substring = true)
+            val close = rule.onNodeWithTag("home-sheet-close").performScrollTo().fetchSemanticsNode()
+            val coordinates = close.layoutInfo.coordinates
+            val bitmap = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+            try {
+                assertTrue("The complete close action stays above system navigation",
+                    coordinates.localToScreen(Offset.Zero).y + coordinates.size.height <= bitmap.height - navigationBottom + 1f)
+            } finally { bitmap.recycle() }
             rule.runOnUiThread {
                 assertEquals(before.books, model().state.value.books)
                 assertEquals(before.xp, model().state.value.xp)

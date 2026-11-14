@@ -124,6 +124,11 @@ class HomeDemoTest {
         val today = allDays.getValue(LocalDate.of(2026, 11, 12))
         assertEquals(listOf("atlas", "garden"), today.books.map { it.bookId })
         assertEquals(listOf(15, 6), today.books.map { it.pages })
+        val long = HomeFixtures.create(HomeScenario.LONG_TEXT)
+        val title = long.books.first().title
+        assertEquals(title, HomeFixtures.year(long).getValue(LocalDate.of(2026, 11, 12)).books.first().title)
+        assertTrue(HomeFixtures.completionSummary(long).first().startsWith(title))
+        assertTrue(long.snapshot.records.last().allTime.startsWith(title))
     }
     @Test fun preparedChartWindowsNeverInventAnUnknownOrApproximatePageDate() {
         val initial = HomeFixtures.create()

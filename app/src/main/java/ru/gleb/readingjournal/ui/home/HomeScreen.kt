@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -14,6 +16,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.intl.LocaleList
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -23,6 +27,8 @@ import java.time.LocalDate
 @Composable
 fun HomeScreen(state: HomeUiState, chart: ChartWindowUi, activity: Map<LocalDate, HeatDayUi>,
     onEvent: (HomeEvent) -> Unit) {
+    // Capture the Activity inset before opening the separate modal window (API 26).
+    val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val scroll = rememberLazyListState()
     var previousScenario by rememberSaveable { mutableStateOf(state.scenario.name) }
     LaunchedEffect(state.scenario) {
@@ -64,12 +70,29 @@ fun HomeScreen(state: HomeUiState, chart: ChartWindowUi, activity: Map<LocalDate
                 style = JournalType.caption, color = LocalJournalColors.current.textSecondary)
         }
     }
-    state.sheet?.let { sheet -> JournalSheet({ onEvent(HomeEvent.Dismiss) }) {
+    state.sheet?.let { sheet -> HomeDemoSheet(navigationBottom, { onEvent(HomeEvent.Dismiss) }) {
         Text(sheet.title, Modifier.semantics { heading() }.testTag("home-sheet"), style = JournalType.section)
         Text(sheet.body, Modifier.testTag("home-sheet-body"))
         sheet.actionLabel?.let { label -> JournalButton(label, { onEvent(HomeEvent.Explain(
             "Демонстрационный переход", "Подробный экран «$label» появится на следующем этапе. В UI-02 доступен только визуальный пример.")) }) }
     } }
+}
+
+/** The approved sheet styling, scoped to Home; its final action stays above system navigation. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeDemoSheet(navigationBottom: androidx.compose.ui.unit.Dp, onDismiss: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, shape = JournalShape.sheet,
+        containerColor = LocalJournalColors.current.surface, tonalElevation = 0.dp,
+        contentWindowInsets = { WindowInsets.safeDrawing.only(WindowInsetsSides.Top) }) {
+        Column(Modifier.fillMaxWidth().padding(bottom = navigationBottom).imePadding()
+            .verticalScroll(rememberScrollState()).padding(Space.lg),
+            verticalArrangement = Arrangement.spacedBy(Space.md)) {
+            content()
+            JournalButton("Закрыть панель", onDismiss, Modifier.testTag("home-sheet-close"), kind = ButtonKind.TEXT)
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -153,7 +176,8 @@ private fun MetricTile(title: String, number: String, unit: String, description:
     JournalCard(modifier.fillMaxWidth().testTag(tag).clickable(role = Role.Button) { onEvent(HomeEvent.Explain(title, description)) }) {
         Text(number, style = JournalType.number)
         Text(unit, style = JournalType.caption, color = LocalJournalColors.current.textSecondary)
-        Text(title, style = JournalType.secondary)
+        Text(title, Modifier.testTag("$tag-label"),
+            style = JournalType.secondary.copy(localeList = LocaleList("ru"), hyphens = Hyphens.Auto))
     }
 }
 
