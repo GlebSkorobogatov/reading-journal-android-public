@@ -6,11 +6,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import ru.gleb.readingjournal.app.MainActivity
+import ru.gleb.readingjournal.testing.ShellRegressionActivity
 
 @RunWith(AndroidJUnit4::class)
 class ShellTest {
-    @get:Rule val rule = createAndroidComposeRule<MainActivity>()
+    @get:Rule val rule = createAndroidComposeRule<ShellRegressionActivity>()
     @Test fun tabsSettingsBackAndRotation() {
         rule.onNodeWithText("Главная · UI-01").assertIsDisplayed()
         rule.onNodeWithText("Библиотека", useUnmergedTree = true).performClick()

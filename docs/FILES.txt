@@ -2,6 +2,8 @@
 .github/ci-policy.json
 .github/scripts/ci_plan.py
 .github/scripts/full_gate.py
+.github/scripts/run_android_suite.sh
+.github/scripts/test_android_evidence.py
 .github/scripts/test_ci.py
 .github/scripts/verify_docs.py
 .github/scripts/verify_test_results.py
@@ -18,6 +20,8 @@ TEST_PLAN.md
 UI_DESIGN_SPEC.md
 app/build.gradle.kts
 app/src/androidTest/java/ru/gleb/readingjournal/AccessibilityMatrixTest.kt
+app/src/androidTest/java/ru/gleb/readingjournal/HomeEvidenceTest.kt
+app/src/androidTest/java/ru/gleb/readingjournal/HomeInteractionTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/LifecycleLayoutTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/PreviewRenderTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/RenderingTest.kt
@@ -26,14 +30,22 @@ app/src/androidTest/java/ru/gleb/readingjournal/ShellTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/SystemThemeTest.kt
 app/src/debug/AndroidManifest.xml
 app/src/debug/java/ru/gleb/readingjournal/testing/PreviewHostActivity.kt
+app/src/debug/java/ru/gleb/readingjournal/testing/ShellRegressionActivity.kt
 app/src/main/AndroidManifest.xml
 app/src/main/java/ru/gleb/readingjournal/app/JournalApp.kt
 app/src/main/java/ru/gleb/readingjournal/app/MainActivity.kt
 app/src/main/java/ru/gleb/readingjournal/app/ShellState.kt
 app/src/main/java/ru/gleb/readingjournal/demo/ComponentCatalog.kt
+app/src/main/java/ru/gleb/readingjournal/demo/HomeDemoViewModel.kt
+app/src/main/java/ru/gleb/readingjournal/demo/HomeFixtures.kt
+app/src/main/java/ru/gleb/readingjournal/demo/HomeRoute.kt
 app/src/main/java/ru/gleb/readingjournal/ui/designsystem/Components.kt
 app/src/main/java/ru/gleb/readingjournal/ui/designsystem/LineIcon.kt
 app/src/main/java/ru/gleb/readingjournal/ui/designsystem/Theme.kt
+app/src/main/java/ru/gleb/readingjournal/ui/home/HomeAnalytics.kt
+app/src/main/java/ru/gleb/readingjournal/ui/home/HomeArt.kt
+app/src/main/java/ru/gleb/readingjournal/ui/home/HomeScreen.kt
+app/src/main/java/ru/gleb/readingjournal/ui/home/HomeUiState.kt
 app/src/main/res/drawable/ic_launcher_foreground.xml
 app/src/main/res/font/lora.ttf
 app/src/main/res/font/manrope.ttf
@@ -42,6 +54,7 @@ app/src/main/res/values/launcher_colors.xml
 app/src/main/res/values/strings.xml
 app/src/main/res/values/themes.xml
 app/src/main/res/xml/data_extraction_rules.xml
+app/src/test/java/ru/gleb/readingjournal/HomeDemoTest.kt
 app/src/test/java/ru/gleb/readingjournal/ShellStateTest.kt
 build.gradle.kts
 docs/CI.md
@@ -52,6 +65,8 @@ docs/SHA256SUMS.txt
 docs/acceptance/MIGRATION-01.md
 docs/acceptance/UI-01-GALAXY-A55.md
 docs/acceptance/UI-01.md
+docs/acceptance/UI-02-GALAXY-A55.md
+docs/acceptance/UI-02.md
 docs/audit/PRODUCT_AUDIT.md
 docs/audit/Читательский_дневник_каталог_достижений_А3_утверждён.md
 docs/decisions/APPROVED_SIMPLIFICATIONS.md
