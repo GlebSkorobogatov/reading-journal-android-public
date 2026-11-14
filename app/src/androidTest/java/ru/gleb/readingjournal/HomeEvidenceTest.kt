@@ -182,6 +182,8 @@ class HomeEvidenceTest {
         rule.waitForIdle()
     }
     private fun screenshot(name: String) {
+        // Also finish draw-only Compose transitions before observing native pixels.
+        rule.mainClock.advanceTimeBy(1_000)
         rule.waitForIdle()
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         // Compose idleness does not wait for SurfaceFlinger, window fades or Android's
@@ -189,19 +191,36 @@ class HomeEvidenceTest {
         // dialog, launcher frame or half-rendered navigation transition.
         var previous: Bitmap? = null
         var stableSince = SystemClock.uptimeMillis()
+        var focus = "not sampled"
+        var accessiblePackage: String? = null
         try {
             rule.waitUntil(15_000) {
                 val current = requireNotNull(automation.takeScreenshot())
                 val unchanged = previous?.sameAs(current) == true
                 previous?.recycle()
                 previous = current
-                val foreground = automation.rootInActiveWindow?.packageName?.toString() == BuildConfig.APPLICATION_ID
-                if (!unchanged || !foreground) stableSince = SystemClock.uptimeMillis()
-                val stable = foreground && unchanged && SystemClock.uptimeMillis() - stableSince >= 750
+                if (!unchanged) stableSince = SystemClock.uptimeMillis()
+                val pixelsStable = unchanged && SystemClock.uptimeMillis() - stableSince >= 750
+                // On older Android, accessibility's active root can remain attached
+                // to a dismissed dialog. WindowManager owns actual window focus.
+                val stable = if (pixelsStable) {
+                    focus = command("dumpsys window windows").lineSequence()
+                        .firstOrNull { it.contains("mCurrentFocus=") }?.trim() ?: "no focused window"
+                    accessiblePackage = automation.rootInActiveWindow?.packageName?.toString()
+                    val foreground = focus.contains("${BuildConfig.APPLICATION_ID}/")
+                    if (foreground && accessiblePackage != BuildConfig.APPLICATION_ID) {
+                        android.util.Log.i("HomeEvidence", "$name: native focus=$focus; accessibility package=$accessiblePackage")
+                    }
+                    foreground
+                } else false
                 if (!stable) SystemClock.sleep(100)
                 stable
             }
             writeScreenshot(name, requireNotNull(previous))
+        } catch (failure: Throwable) {
+            // Keep the actual rejected frame and focus evidence for diagnosis.
+            previous?.let { writeScreenshot("$name-REJECTED", it) }
+            throw AssertionError("Rejected screenshot $name: $focus; accessibility package=$accessiblePackage", failure)
         } finally {
             previous?.recycle()
         }
