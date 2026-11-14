@@ -9,8 +9,8 @@ android {
         applicationId = "ru.gleb.readingjournal"
         minSdk = 26
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.1.1-ui01"
+        versionCode = 4
+        versionName = "0.2.1-ui02-pages"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }

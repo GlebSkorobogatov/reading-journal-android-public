@@ -82,14 +82,7 @@ jobs:
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader -noaudio -no-boot-anim -camera-back none -no-metrics
           pre-emulator-launch-script: echo '::notice::System image and AVD prepared; launching emulator.'
-          script: |
-            set -eu
-            echo '::notice::Emulator booted; starting full instrumentation suite.'
-            mkdir -p app/build
-            bash -o pipefail -c './gradlew :app:connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true 2>&1 | tee app/build/connected-debug.log'
-            mkdir -p app/build/emulator-screenshots
-            adb exec-out run-as ru.gleb.readingjournal tar -C files -cf - screenshots > app/build/screenshots.tar
-            tar -xf app/build/screenshots.tar -C app/build/emulator-screenshots
+          script: bash .github/scripts/run_android_suite.sh ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Verify Android results
         if: always()
         env:

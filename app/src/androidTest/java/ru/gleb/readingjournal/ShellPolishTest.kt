@@ -11,11 +11,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import ru.gleb.readingjournal.app.MainActivity
+import ru.gleb.readingjournal.testing.ShellRegressionActivity
 import java.io.File
 
 class ShellPolishTest {
-    @get:Rule val rule = createAndroidComposeRule<MainActivity>()
+    @get:Rule val rule = createAndroidComposeRule<ShellRegressionActivity>()
 
     @Test fun placeholdersStayCenteredBetweenBarsInBothThemes() {
         for (theme in listOf("Светлая", "Тёмная")) {

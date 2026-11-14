@@ -59,3 +59,11 @@ Uploads имеют узкий allowlist: APK/его metadata, lint/JUnit, син
 Готовность к ручной приёмке подтверждается только успешным Android full на итоговом Head со всеми результатами таблицы выше. HTTP 403 сетевого прокси среды не является отказом GitHub в правах и не доказывает несоответствие actor. Секреты, write permissions workflow, pull_request_target и запуски чужого fork для обхода этого ограничения не добавляются.
 
 После публикации сетевой настройки API проверен: Codex авторизован как GlebSkorobogatov, actor совпадает с owner. Существующий owner guard удовлетворяется штатно; изменение workflow для делегированного инициатора не требуется.
+
+## UI-02 по REV-01: доказательства итогового Head
+
+Для новой ветки UI-02-PAGES разрешение владельца включает Quick, Ready/Full и повторные полные запуски после исправлений; merge не разрешён. task/scope сужены до Главной/минимальной интеграции/тестов/отчёта, минимумы повышены до22JVM/34Compose на каждойAPI26/35/36. SDK/JDK/Gradle/зависимости, suite без фильтрации, валидатор XML, Full acceptance, owner/public guards, read-only permissions и upload allowlist сохранены.
+
+Переиспользован run_android_suite.sh из старого UI-02 на точном e7be6c1: передаёт sourceSha instrumentation runner, EXIT trap собирает синтетические кадры даже при отказе и сохраняет исходный exit-код suite; неудачный сбор не превращает FAIL в PASS. Три регрессии helper сохранены. Два существующих CI-script теста адаптируют только динамический floor и разрешённый синтетический путь нового scope, не ослабляют assertions.
+
+HomeEvidenceTest ожидает стабильные реальные native-пиксели/foreground WindowManager, пишет REJECTED PNG и dump при отказе и оставляет тест FAIL. Metadata: sourceSha, APK version, API, тема, сценарий/кадр, fontScale, ориентация/размер, density и locale. Снимки не golden и не A55. После изменения Head обязателен новый Full; при финальном успехе XML/ZIP/APK скачиваются и независимо проверяются. Исторический результат старого UI-02 не подменяет новую приёмку.

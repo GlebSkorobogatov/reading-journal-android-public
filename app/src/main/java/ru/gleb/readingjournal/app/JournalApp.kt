@@ -31,12 +31,18 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.*
 import ru.gleb.readingjournal.BuildConfig
 import ru.gleb.readingjournal.demo.ComponentCatalog
+import ru.gleb.readingjournal.demo.HomeDemoViewModel
+import ru.gleb.readingjournal.demo.HomeRoute
+import ru.gleb.readingjournal.demo.HomeScenarioPicker
+import ru.gleb.readingjournal.ui.home.*
 import ru.gleb.readingjournal.ui.designsystem.*
 
 private val tabs = listOf("Главная", "Библиотека", "Достижения")
 @Composable
-fun JournalApp(model: ShellViewModel = viewModel()) {
+fun JournalApp(model: ShellViewModel = viewModel(), showHomeDemo: Boolean = true) {
     val state by model.state.collectAsStateWithLifecycle()
+    val homeModel: HomeDemoViewModel? = if (showHomeDemo) viewModel() else null
+    val home = homeModel?.state?.collectAsStateWithLifecycle()?.value
     JournalTheme(state.theme) {
         val dark = LocalJournalDark.current
         val activity = LocalActivity.current as? androidx.activity.ComponentActivity
@@ -47,11 +53,12 @@ fun JournalApp(model: ShellViewModel = viewModel()) {
                 navigationBarStyle = if (dark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
                     else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT))
         }
-        JournalShell(state, model::selectTheme)
+        JournalShell(state, model::selectTheme, home) { homeModel?.dispatch(it) }
     }
 }
 @Composable
-fun JournalShell(state: ShellState, onTheme: (ThemeMode) -> Unit) {
+fun JournalShell(state: ShellState, onTheme: (ThemeMode) -> Unit,
+    home: HomeUiState? = null, onHome: (HomeEvent) -> Unit = {}) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: tabs.first()
@@ -95,7 +102,8 @@ fun JournalShell(state: ShellState, onTheme: (ThemeMode) -> Unit) {
                             restoreState = true
                         }
                     }) {
-                    BoxWithConstraints(Modifier.fillMaxSize().testTag("placeholder-viewport")) {
+                    if (tab == tabs.first() && home != null) HomeRoute(home, onHome)
+                    else BoxWithConstraints(Modifier.fillMaxSize().testTag("placeholder-viewport")) {
                         val viewportHeight = maxHeight
                         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
                             .heightIn(min = viewportHeight).padding(Space.lg),
@@ -124,7 +132,19 @@ fun JournalShell(state: ShellState, onTheme: (ThemeMode) -> Unit) {
                 }
             }
             if (BuildConfig.DEBUG) composable("Компоненты") {
-                ShellPage("Компоненты", onAction = { nav.popBackStack() }) { ComponentCatalog() }
+                ShellPage("Компоненты", onAction = { nav.popBackStack() }) {
+                    ComponentCatalog(onHomeScenarios = if (home != null) {
+                        { nav.navigate("Сценарии главной") { launchSingleTop = true } }
+                    } else null)
+                }
+            }
+            if (BuildConfig.DEBUG && home != null) composable("Сценарии главной") {
+                ShellPage("Сценарии главной", onAction = { nav.popBackStack() }) {
+                    HomeScenarioPicker(home.scenario) { scenario ->
+                        onHome(HomeEvent.Scenario(scenario))
+                        nav.popBackStack(tabs.first(), false)
+                    }
+                }
             }
         }
     }
@@ -145,7 +165,9 @@ private fun ShellPage(title: String, onAction: () -> Unit, onTab: ((String) -> U
                 JournalIconButton(label, onAction) { LineIcon(label) }
             }
         },
-        bottomBar = { if (onTab != null) JournalBottomBar(tabs, title, onTab) { LineIcon(it) } }
+        bottomBar = { if (onTab != null) Column {
+            Box(Modifier.testTag("shell-navigation")) { JournalBottomBar(tabs, title, onTab) { LineIcon(it) } }
+        } }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()) { content() }
     }
