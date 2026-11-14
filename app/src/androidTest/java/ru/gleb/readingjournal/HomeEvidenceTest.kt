@@ -192,6 +192,7 @@ class HomeEvidenceTest {
         var previous: Bitmap? = null
         var stableSince = SystemClock.uptimeMillis()
         var focus = "not sampled"
+        var windowDump = "not sampled"
         var accessiblePackage: String? = null
         try {
             rule.waitUntil(15_000) {
@@ -204,7 +205,10 @@ class HomeEvidenceTest {
                 // On older Android, accessibility's active root can remain attached
                 // to a dismissed dialog. WindowManager owns actual window focus.
                 val stable = if (pixelsStable) {
-                    focus = command("dumpsys window windows").lineSequence()
+                    // Focus lives in the display section on recent Android, not
+                    // the `windows` subsection. The full dump covers API 26+.
+                    windowDump = command("dumpsys window")
+                    focus = windowDump.lineSequence()
                         .firstOrNull { it.contains("mCurrentFocus=") }?.trim() ?: "no focused window"
                     accessiblePackage = automation.rootInActiveWindow?.packageName?.toString()
                     val foreground = focus.contains("${BuildConfig.APPLICATION_ID}/")
@@ -220,6 +224,7 @@ class HomeEvidenceTest {
         } catch (failure: Throwable) {
             // Keep the actual rejected frame and focus evidence for diagnosis.
             previous?.let { writeScreenshot("$name-REJECTED", it) }
+            File(rule.activity.filesDir, "screenshots/ui02-$name-window-dump.txt").writeText(windowDump)
             throw AssertionError("Rejected screenshot $name: $focus; accessibility package=$accessiblePackage", failure)
         } finally {
             previous?.recycle()
