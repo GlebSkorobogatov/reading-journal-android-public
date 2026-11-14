@@ -181,7 +181,9 @@ class HomeEvidenceTest {
     private fun captureUntil(name: String, endTag: String) {
         for (frame in 0 until 30) {
             screenshot("$name-$frame")
-            val end = rule.onAllNodesWithTag(endTag).fetchSemanticsNodes().firstOrNull()
+            // Metric cards merge descendants for TalkBack; inspect their label's
+            // actual coordinates without changing the accessible merged semantics.
+            val end = rule.onAllNodesWithTag(endTag, useUnmergedTree = true).fetchSemanticsNodes().firstOrNull()
             val viewport = rule.onNodeWithTag("home-feed").fetchSemanticsNode().boundsInRoot
             if (end != null) {
                 val top = end.layoutInfo.coordinates.positionInRoot().y
