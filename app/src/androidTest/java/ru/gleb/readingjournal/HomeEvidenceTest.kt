@@ -5,6 +5,9 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.SystemClock
+import android.view.InputDevice
+import android.view.MotionEvent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.semantics.SemanticsActions
@@ -26,9 +29,21 @@ import kotlin.math.abs
 class HomeEvidenceTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
     @Before fun usePhoneTouchInput() {
-        // A phone tap must not inherit the emulator hardware keyboard's focused
-        // drag-handle tooltip. Keep the real component and verify no popup remains.
-        InstrumentationRegistry.getInstrumentation().setInTouchMode(true)
+        // Use Android's real input dispatcher. setInTouchMode alone can leave an
+        // API 26 window in keyboard mode until it receives an actual touch event.
+        // The heading is inert: this changes input mode, never reading data.
+        rule.waitForIdle()
+        val coordinates = rule.onNodeWithTag("home-books-heading").fetchSemanticsNode().layoutInfo.coordinates
+        val center = coordinates.localToScreen(Offset(coordinates.size.width / 2f, coordinates.size.height / 2f))
+        check(center.x.isFinite() && center.y.isFinite())
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val downTime = SystemClock.uptimeMillis()
+        for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
+            val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, center.x, center.y, 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            try { assertTrue("Native phone touch is delivered", automation.injectInputEvent(event, true)) }
+            finally { event.recycle() }
+        }
         rule.waitForIdle()
         rule.waitUntil(5_000) { rule.activity.window.decorView.isInTouchMode }
         assertTrue("Phone evidence uses touch mode", rule.activity.window.decorView.isInTouchMode)
