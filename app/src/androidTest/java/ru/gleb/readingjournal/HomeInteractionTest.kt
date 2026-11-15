@@ -105,15 +105,21 @@ class HomeInteractionTest {
             Triple("metric-streak", "Серия", "Текущая серия"))
         metrics.forEach { (tag, label, fullTitle) ->
             val layouts = mutableListOf<TextLayoutResult>()
-            rule.onNodeWithTag("$tag-label", useUnmergedTree = true)
-                .assertTextEquals(label)
+            val labelNode = rule.onNodeWithTag("$tag-label", useUnmergedTree = true)
+            labelNode.assertTextEquals(label)
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
             rule.onNodeWithTag(tag).assert(hasContentDescription(fullTitle, substring = true))
             assertTrue("Metric label has measured text", layouts.isNotEmpty())
             layouts.forEach { layout ->
                 assertEquals("The compact metric word stays on one line", 1, layout.lineCount)
-                assertFalse("Metric text has no width overflow", layout.didOverflowWidth)
-                assertFalse("Metric text has no height overflow", layout.didOverflowHeight)
+                // String Text semantics reconstructs a paragraph at the parent maxWidth,
+                // while the actual Text node wraps its single-line content. Test the
+                // rendered line against that node, not the wider reconstructed paragraph.
+                val size = labelNode.fetchSemanticsNode().layoutInfo.coordinates.size
+                assertTrue("Metric line fits Text width: $label, line=${layout.getLineLeft(0)}..${layout.getLineRight(0)}, node=$size",
+                    layout.getLineLeft(0) >= 0f && layout.getLineRight(0) <= size.width)
+                assertTrue("Metric line fits Text height: $label, node=$size",
+                    layout.getLineTop(0) >= 0f && layout.getLineBottom(0) <= size.height)
                 assertFalse("Metric text has no ellipsis", layout.isLineEllipsized(0))
                 for (line in 0 until layout.lineCount) {
                     val firstWord = layout.layoutInput.text.text.substring(layout.getLineStart(line), layout.getLineEnd(line))

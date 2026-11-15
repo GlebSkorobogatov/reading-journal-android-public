@@ -191,15 +191,23 @@ class HomeEvidenceTest {
         val positions = contracts.map { (tag, label, fullTitle) ->
             val card = rule.onNodeWithTag(tag).assert(hasContentDescription(fullTitle, substring = true))
             val layouts = mutableListOf<TextLayoutResult>()
-            rule.onNodeWithTag("$tag-label", useUnmergedTree = true).assertTextEquals(label)
-                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            val labelNode = rule.onNodeWithTag("$tag-label", useUnmergedTree = true)
+            labelNode.assertTextEquals(label).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
             assertTrue("Compact label is measured: $label", layouts.isNotEmpty())
             val config = rule.activity.resources.configuration
             val context = "$label: API ${Build.VERSION.SDK_INT}, fontScale=${config.fontScale}, orientation=${config.orientation}"
             layouts.forEach { layout ->
                 assertEquals("The metric word is not split; $context", 1, layout.lineCount)
-                assertFalse("No width clipping; $context", layout.didOverflowWidth)
-                assertFalse("No height clipping; $context", layout.didOverflowHeight)
+                // BasicText(String) semantics rebuilds a paragraph using parent
+                // constraints. Its width can exceed the content-wrapping Text node;
+                // clipping is determined by the actual line extents inside that node.
+                val size = labelNode.fetchSemanticsNode().layoutInfo.coordinates.size
+                val geometry = "line=${layout.getLineLeft(0)}..${layout.getLineRight(0)}, node=$size, paragraph=${layout.multiParagraph.width}"
+                android.util.Log.i("HomeMetricGeometry", "$context; $geometry")
+                assertTrue("No width clipping; $context; $geometry",
+                    layout.getLineLeft(0) >= 0f && layout.getLineRight(0) <= size.width)
+                assertTrue("No height clipping; $context; $geometry",
+                    layout.getLineTop(0) >= 0f && layout.getLineBottom(0) <= size.height)
                 assertFalse("No ellipsis; $context", layout.isLineEllipsized(0))
             }
             card.fetchSemanticsNode().layoutInfo.coordinates.positionInRoot()
