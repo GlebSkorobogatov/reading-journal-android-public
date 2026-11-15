@@ -8,9 +8,11 @@
 
 **Проверенный статус 14 ноября 2026 г.:** UI-01 принят владельцем и [PR №1](https://github.com/GlebSkorobogatov/reading-journal-android-public/pull/1) объединён; принятая база UI-01 перед REV-01 `4c14b5dce1b9dc819d76c5c6368236320c442c3c`. Его реальные CI/A55 результаты сохранены в [отчёте](docs/acceptance/UI-01.md).
 
-Старый UI-02 реализован в [PR №2](https://github.com/GlebSkorobogatov/reading-journal-android-public/pull/2), ветка `codex/ui-02-home-screen`, head `e7be6c1a6ffeeb777715624a6e758d9f2387fed0`; автоматические проверки были пройдены, ручная приёмка не проведена, не принят и не объединён. PR/ветку/коммиты сохранять. Переработанный UI-02 новой концепции **не выполнен**. UI-03 не начат.
+Старый UI-02 реализован в [PR №2](https://github.com/GlebSkorobogatov/reading-journal-android-public/pull/2), ветка `codex/ui-02-home-screen`, head `e7be6c1a6ffeeb777715624a6e758d9f2387fed0`; автоматические проверки были пройдены, ручная приёмка не проведена, не принят и не объединён. PR/ветку/коммиты сохранять. Новая реализация по REV-01 выполняется в отдельной ветке/PR; владелец её ещё не принял. UI-03 не начат.
 
-**Текущая задача REV-01 — только документация:** [реестр решений](docs/decisions/REV-01-reading-without-timer.md), [отчёт](docs/acceptance/REV-01.md). Пакет окончательно принят владельцем без замечаний 14 ноября 2026 г.; все двенадцать решений и документация согласованы, merge PR №3 явно разрешён после обязательных проверок. Переработка UI-02 пока не разрешена. Реализация/исполняемые тесты/Gradle/resources/manifest/CI не меняются; новая модель пока не реализована. Основной код этой ветки — принятый каркас UI-01, а не работающий дневник.
+**Текущая задача UI-02 по REV-01:** новый демонстрационный главный экран без измерения чтения, отдельная ветка `codex/ui-02-home-page-based` от принятого main `1073e501cd6b2e835404ce6bd89f5bbd6685d547`. Владелец явно разрешил реализацию, новый Draft PR, Quick и Full CI, безопасные исправления/повторные проверки. Merge и UI-03 не разрешены. [Отчёт/карта переиспользования и тестов](docs/acceptance/UI-02-PAGES.md) · [A55 checklist](docs/acceptance/UI-02-PAGES-GALAXY-A55.md).
+
+Главная: все активные книги и typed-вход «Записать чтение», прежняя иллюстрированная XP-карточка, страницы/прочтения/серия, шесть периодов и четыре секции страниц. Только заранее подготовленные данные/UI-state; форма UI-08 и подробности UI-09 пока явные демонстрационные входы. Реальных записей/XP/агрегации/Room нет. Библиотека и Достижения — заглушки UI-01. Таймер отсутствует, включая debug-сценарии.
 
 ## Документация и границы
 
@@ -26,7 +28,7 @@
 
 ```sh
 ./gradlew :app:assembleDebug :app:lintDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest
-python3 .github/scripts/verify_test_results.py app/build/test-results/testDebugUnitTest --minimum 3
+python3 .github/scripts/verify_test_results.py app/build/test-results/testDebugUnitTest --minimum 22
 python3 .github/scripts/verify_docs.py
 python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
 git diff --check
@@ -36,16 +38,16 @@ git diff --check
 
 ```sh
 ./gradlew :app:connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
-python3 .github/scripts/verify_test_results.py app/build/outputs/androidTest-results/connected/debug --minimum 10
+python3 .github/scripts/verify_test_results.py app/build/outputs/androidTest-results/connected/debug --minimum 34
 ```
 
-Debug APK: `app/build/outputs/apk/debug/app-debug.apk`, applicationId `ru.gleb.readingjournal`, versionName **0.1.1-ui01**, versionCode **2**. В Windows использовать `gradlew.bat` и Python 3.12+. Debug-сборка не является публичным релизом или готовым рабочим дневником.
+Debug APK: `app/build/outputs/apk/debug/app-debug.apk`, applicationId `ru.gleb.readingjournal`, versionName **0.2.1-ui02-pages**, versionCode **4**. В Windows использовать `gradlew.bat` и Python 3.12+. Debug-сборка не является публичным релизом или готовым рабочим дневником.
 
 ## CI и приёмка
 
 [Схема CI](docs/CI.md): быстрый workflow для PR и main, полный — по явному разрешению владельца, включая автоматический перевод PR в Ready через Codex. Повторные полные push/PR-запуски рабочей ветки устранены. Только стандартные Ubuntu runners, `contents: read`, без секретов; в приватном репозитории исполнение jobs заблокировано. До разрешения владельца CI не запускать. Артефакты быстрых запусков хранятся 7 дней, полных — 30.
 
-Для реализации Android полная проверка обязательна на итоговом Head перед приёмкой: Build/lint, минимум 3 JVM и 10 Compose-тестов на **каждой** API 26/35/36, без failures/errors/skips. `Quick checks` не заменяет `Full acceptance`. REV-01 — docs-only: после фиксации приёмки обязательны Quick итогового Head и штатные проверки main после merge. Full Android CI и APK/A55 не требуются; существующий ready_for_review автоматически запускает Full и не изменяется в этом задании. Существующий Quick может автоматически проверить документы без изменения политики. Свежие CI-ссылки и APK добавляются только после фактического запуска; старые результаты не выдаются за новые.
+Для реализации Android полная проверка обязательна на итоговом Head перед приёмкой: Build/lint, минимум 22 JVM и 34 Compose-теста на **каждой** API 26/35/36, без failures/errors/skips. `Quick checks` не заменяет `Full acceptance`. Для нового UI-02 обязательны Full точного итогового Head, скачанные XML/APK и проверенные реальные кадры. Владелец заранее разрешил Ready и Full, включая повторные запуски после исправлений. A55 остаётся ручной приёмкой владельца. Существующий Quick может автоматически проверить документы без изменения политики. Свежие CI-ссылки и APK добавляются только после фактического запуска; старые результаты не выдаются за новые.
 
 [Отчёт UI-01](docs/acceptance/UI-01.md) · [Galaxy A55](docs/acceptance/UI-01-GALAXY-A55.md) · [Подготовка переноса](docs/acceptance/MIGRATION-01.md) · [Публикация и новая среда Codex](docs/PUBLICATION.md).
 
@@ -53,6 +55,8 @@ Debug APK: `app/build/outputs/apk/debug/app-debug.apk`, applicationId `ru.gleb.r
 
 ## Следующий шаг
 
-REV-01 принят владельцем без замечаний 14 ноября 2026 г. Принятый содержательный Head: `f983b3bde960aa6539470ce5bab7bea142a713a9`. В [PR №3](https://github.com/GlebSkorobogatov/reading-journal-android-public/pull/3) разрешено зафиксировать эту приёмку, проверить итоговый Head, дождаться Quick, перевести Draft в Ready и выполнить merge без обхода проверок. Затем проверить фактический main и его штатный CI. Итоговые SHA и ссылки на CI фиксируются в метаданных PR и отчёте завершения; разрешение не распространяется на программный код.
+После успешного Full точного итогового Head и проверки APK/визуальных доказательств — **UI-02 READY FOR MANUAL ACCEPTANCE**, не «принят». Фактический итоговый SHA, ссылки на CI/артефакты, независимо сверенная SHA-256 APK и сравнение подписи публикуются в новом PR и отчёте владельцу. Владелец проходит отдельный A55 checklist. Установка поверх принятой UI-01 зависит от сертификата подписи; автоматическое удаление приложения/данных не допускается.
 
-После успешного завершения остановиться. Переработка UI-02 пока не разрешена; новый UI-02 не выполнен. UI-03 не начат. PR №2, его ветку и коммиты сохранять. Следующее задание выдаётся владельцем отдельно. Таймер не возвращать; все продуктовые требования и утверждённые дизайн-токены остаются неизменными.
+Debug-сценарии: Настройки → Каталог компонентов · debug → Сценарии главной · debug. Восемь состояний, только синтетические данные. Запись чтения — обозначенный будущий вход, не настоящая форма.
+
+PR №2/его ветка/история/описание/статус сохраняются. Merge нового PR и UI-03 не разрешены. По завершении автоматических проверок остановиться до решения владельца по A55.
