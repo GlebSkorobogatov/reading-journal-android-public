@@ -100,18 +100,32 @@ class HomeInteractionTest {
         }
         scroll("home-xp").assert(hasAnyDescendant(hasText("Уровень 8 · Ученик")))
         scroll("home-metrics")
-        listOf("metric-pages", "metric-completions", "metric-streak").forEach { tag ->
+        val metrics = listOf(Triple("metric-pages", "Страницы", "Прочитанные страницы"),
+            Triple("metric-completions", "Прочтения", "Завершённые прочтения"),
+            Triple("metric-streak", "Серия", "Текущая серия"))
+        metrics.forEach { (tag, label, fullTitle) ->
             val layouts = mutableListOf<TextLayoutResult>()
             rule.onNodeWithTag("$tag-label", useUnmergedTree = true)
+                .assertTextEquals(label)
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            rule.onNodeWithTag(tag).assert(hasContentDescription(fullTitle, substring = true))
             assertTrue("Metric label has measured text", layouts.isNotEmpty())
             layouts.forEach { layout ->
+                assertEquals("The compact metric word stays on one line", 1, layout.lineCount)
+                assertFalse("Metric text has no width overflow", layout.didOverflowWidth)
+                assertFalse("Metric text has no height overflow", layout.didOverflowHeight)
+                assertFalse("Metric text has no ellipsis", layout.isLineEllipsized(0))
                 for (line in 0 until layout.lineCount) {
                     val firstWord = layout.layoutInput.text.text.substring(layout.getLineStart(line), layout.getLineEnd(line))
                         .trim().substringBefore(' ')
                     assertTrue("Metric words must not wrap to a lone letter: $firstWord", firstWord.length > 1)
                 }
             }
+            rule.onNodeWithTag(tag).performClick()
+            rule.onNodeWithTag("home-sheet").assertTextEquals(fullTitle)
+            if (tag == "metric-completions") rule.onNodeWithTag("home-sheet-body")
+                .assertTextContains("7 завершённых прочтений, включая повторные циклы", substring = true)
+            close()
         }
     }
     @Test fun onlyOneOfFourSectionsCanRemainExpandedAndItCanCollapse() {

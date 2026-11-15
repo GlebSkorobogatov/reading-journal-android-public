@@ -8,6 +8,7 @@ import android.os.SystemClock
 import android.view.InputDevice
 import android.view.MotionEvent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.semantics.SemanticsActions
@@ -161,6 +162,7 @@ class HomeEvidenceTest {
                         // it proves both states. Do not save an identical second PNG.
                         if (!actionAlreadyVisible) screenshot("${mode.name}-font$fontScale-orientation$orientation-record-action")
                         scroll("metric-pages")
+                        assertCompactMetricLabels()
                         captureUntil("${mode.name}-font$fontScale-orientation$orientation-metrics", "metric-streak-label")
                         event(HomeEvent.Section(HomeSection.RECORDS))
                         event(HomeEvent.Period(HomePeriod.MONTH))
@@ -179,6 +181,32 @@ class HomeEvidenceTest {
                 val config = rule.activity.resources.configuration
                 config.orientation == originalOrientation && abs(config.fontScale - originalScale) < .01f
             }
+        }
+    }
+
+    private fun assertCompactMetricLabels() {
+        val contracts = listOf(Triple("metric-pages", "Страницы", "Прочитанные страницы"),
+            Triple("metric-completions", "Прочтения", "Завершённые прочтения"),
+            Triple("metric-streak", "Серия", "Текущая серия"))
+        val positions = contracts.map { (tag, label, fullTitle) ->
+            val card = rule.onNodeWithTag(tag).assert(hasContentDescription(fullTitle, substring = true))
+            val layouts = mutableListOf<TextLayoutResult>()
+            rule.onNodeWithTag("$tag-label", useUnmergedTree = true).assertTextEquals(label)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            assertTrue("Compact label is measured: $label", layouts.isNotEmpty())
+            val config = rule.activity.resources.configuration
+            val context = "$label: API ${Build.VERSION.SDK_INT}, fontScale=${config.fontScale}, orientation=${config.orientation}"
+            layouts.forEach { layout ->
+                assertEquals("The metric word is not split; $context", 1, layout.lineCount)
+                assertFalse("No width clipping; $context", layout.didOverflowWidth)
+                assertFalse("No height clipping; $context", layout.didOverflowHeight)
+                assertFalse("No ellipsis; $context", layout.isLineEllipsized(0))
+            }
+            card.fetchSemanticsNode().layoutInfo.coordinates.positionInRoot()
+        }
+        positions.zipWithNext().forEach { (before, after) ->
+            assertTrue("Metric order is pages, completed readings, current streak",
+                before.y < after.y || (abs(before.y - after.y) < 1f && before.x < after.x))
         }
     }
 

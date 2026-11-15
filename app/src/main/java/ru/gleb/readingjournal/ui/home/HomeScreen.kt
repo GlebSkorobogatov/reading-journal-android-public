@@ -19,9 +19,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.compose.ui.text.intl.LocaleList
-import androidx.compose.ui.text.style.Hyphens
-import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -155,10 +152,10 @@ private fun HomeMetrics(state: HomeUiState, onEvent: (HomeEvent) -> Unit) {
     val snapshot = state.snapshot
     val dayUnit = russianForm(state.streak, "день", "дня", "дней")
     val cards: @Composable () -> Unit = {
-        MetricTile("Прочитанные страницы", snapshot.pages.text, "стр.", snapshot.pages.accessible, "metric-pages", onEvent)
-        MetricTile("Завершённые прочтения", snapshot.completions.toString(), "прочтений",
+        MetricTile("Прочитанные страницы", "Страницы", snapshot.pages.text, "стр.", snapshot.pages.accessible, "metric-pages", onEvent)
+        MetricTile("Завершённые прочтения", "Прочтения", snapshot.completions.toString(), "прочтений",
             "${snapshot.completions} завершённых прочтений, включая повторные циклы", "metric-completions", onEvent)
-        MetricTile("Текущая серия", state.streak.toString(), dayUnit,
+        MetricTile("Текущая серия", "Серия", state.streak.toString(), dayUnit,
             "Текущая серия ${state.streak} $dayUnit. Не зависит от периода статистики", "metric-streak", onEvent)
     }
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("home-metrics")) {
@@ -166,11 +163,11 @@ private fun HomeMetrics(state: HomeUiState, onEvent: (HomeEvent) -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(Space.sm)) {
             if (stacked) Column(verticalArrangement = Arrangement.spacedBy(Space.md)) { cards() }
             else Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                Box(Modifier.weight(1f).fillMaxHeight()) { MetricTile("Прочитанные страницы", snapshot.pages.text, "стр.", snapshot.pages.accessible,
+                Box(Modifier.weight(1f).fillMaxHeight()) { MetricTile("Прочитанные страницы", "Страницы", snapshot.pages.text, "стр.", snapshot.pages.accessible,
                     "metric-pages", onEvent, Modifier.fillMaxHeight()) }
-                Box(Modifier.weight(1f).fillMaxHeight()) { MetricTile("Завершённые прочтения", snapshot.completions.toString(), "прочтений",
+                Box(Modifier.weight(1f).fillMaxHeight()) { MetricTile("Завершённые прочтения", "Прочтения", snapshot.completions.toString(), "прочтений",
                     "${snapshot.completions} завершённых прочтений, включая повторные циклы", "metric-completions", onEvent, Modifier.fillMaxHeight()) }
-                Box(Modifier.weight(1f).fillMaxHeight()) { MetricTile("Текущая серия", state.streak.toString(), dayUnit,
+                Box(Modifier.weight(1f).fillMaxHeight()) { MetricTile("Текущая серия", "Серия", state.streak.toString(), dayUnit,
                     "Текущая серия ${state.streak} $dayUnit. Не зависит от периода статистики", "metric-streak", onEvent, Modifier.fillMaxHeight()) }
             }
             Text("День серии — хотя бы одна новая подтверждённая страница", style = JournalType.caption, color = LocalJournalColors.current.textSecondary)
@@ -179,14 +176,14 @@ private fun HomeMetrics(state: HomeUiState, onEvent: (HomeEvent) -> Unit) {
 }
 
 @Composable
-private fun MetricTile(title: String, number: String, unit: String, description: String, tag: String,
+private fun MetricTile(title: String, label: String, number: String, unit: String, description: String, tag: String,
     onEvent: (HomeEvent) -> Unit, modifier: Modifier = Modifier) {
-    JournalCard(modifier.fillMaxWidth().testTag(tag).clickable(role = Role.Button) { onEvent(HomeEvent.Explain(title, description)) }) {
+    JournalCard(modifier.fillMaxWidth().testTag(tag)
+        .semantics { contentDescription = "$title. $description" }
+        .clickable(role = Role.Button) { onEvent(HomeEvent.Explain(title, description)) }) {
         Text(number, style = JournalType.number)
         Text(unit, style = JournalType.caption, color = LocalJournalColors.current.textSecondary)
-        Text(title, Modifier.testTag("$tag-label"),
-            style = JournalType.secondary.copy(localeList = LocaleList("ru"), hyphens = Hyphens.Auto,
-                lineBreak = LineBreak.Paragraph))
+        Text(label, Modifier.testTag("$tag-label"), style = JournalType.secondary)
     }
 }
 
