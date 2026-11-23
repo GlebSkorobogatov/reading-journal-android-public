@@ -1,6 +1,6 @@
 # REV-02 — отчёт документационного этапа
 
-23 ноября 2026 г. **Статус: проверки выполняются, документация ещё не принята.** Решения владельца D01–D08/A01–A03 утверждены. Новая структура не реализована.
+23 ноября 2026 г. **Статус: локальные проверки PASS; итоговый Quick — в checks Draft PR №5. После его PASS — READY FOR DOCUMENTATION REVIEW, не принят владельцем.** Решения владельца D01–D08/A01–A03 утверждены. Новая структура не реализована.
 
 ## 1. Проверенное исходное состояние
 
@@ -12,7 +12,7 @@
 
 ## 3. Draft PR
 
-Один новый Draft PR в main с точным названием **docs: REV-02 — simplify reading journal navigation**. Ссылка будет добавлена после фактического создания. Draft сохраняется, Ready/merge запрещены.
+Создан один [Draft PR №5](https://github.com/GlebSkorobogatov/reading-journal-android-public/pull/5) в main с точным названием **docs: REV-02 — simplify reading journal navigation**. Draft сохраняется, Ready/merge запрещены.
 
 ## 4. Изменённые файлы
 
@@ -120,7 +120,7 @@ ARCHITECTURE§3/ADR-12: три корня/четыре дочерних, typed I
 
 ## 17. Quick CI
 
-NOT RUN до создания Draft PR. Итоговые SHA/run/result публикуются в описании Draft PR после фактического выполнения Quick на итоговом Head. Если Android skipped по docs-only — штатный NOT RUN. Конфигурация CI не меняется. PR остаётся Draft, Full не запускается.
+Draft PR №5 создан, Quick запускается штатно. Итоговые SHA/run/result публикуются в [описании и checks Draft PR №5](https://github.com/GlebSkorobogatov/reading-journal-android-public/pull/5) после фактического выполнения Quick на итоговом Head. Если Android skipped по docs-only — штатный NOT RUN. Конфигурация CI не меняется. PR остаётся Draft, Full не запускается.
 
 ## 18. PR №2 и №4
 
