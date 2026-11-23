@@ -49,6 +49,7 @@ docs/FILES.txt
 docs/PUBLICATION.md
 docs/README.md
 docs/SHA256SUMS.txt
+docs/acceptance/FIX-01.md
 docs/acceptance/MIGRATION-01.md
 docs/acceptance/REV-01.md
 docs/acceptance/REV-02.md
