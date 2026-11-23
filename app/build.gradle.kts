@@ -4,7 +4,9 @@ plugins {
 }
 android {
     namespace = "ru.gleb.readingjournal"
-    compileSdk = 37
+    compileSdk {
+        version = release(37) { minorApiLevel = 1 }
+    }
     defaultConfig {
         applicationId = "ru.gleb.readingjournal"
         minSdk = 26
