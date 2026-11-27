@@ -55,9 +55,9 @@ private const val RecordRoute = "RecordReading/{bookId}/{cycleId}"
 
 @Composable
 fun JournalApp(model: ShellViewModel = viewModel(), demo: ReadingDemoViewModel = viewModel()) {
-    val state by model.state.collectAsStateWithLifecycle()
-    val overview by demo.state.collectAsStateWithLifecycle()
-    JournalTheme(state.theme) {
+    val state = model.state.collectAsStateWithLifecycle()
+    val overview = demo.state.collectAsStateWithLifecycle()
+    JournalTheme(state.value.theme) {
         val dark = LocalJournalDark.current
         val activity = LocalActivity.current as? androidx.activity.ComponentActivity
         SideEffect {
@@ -72,9 +72,9 @@ fun JournalApp(model: ShellViewModel = viewModel(), demo: ReadingDemoViewModel =
 }
 @Composable
 private fun JournalShell(
-    state: ShellState,
+    state: State<ShellState>,
     onTheme: (ThemeMode) -> Unit,
-    overview: ReadingDemoUi,
+    overview: State<ReadingDemoUi>,
     onDemoAction: (DemoAction) -> Unit,
 ) {
     val nav = rememberNavController()
@@ -125,7 +125,7 @@ private fun JournalShell(
                     }) {
                     when (tab) {
                         RootTab.READING -> CurrentlyReading(
-                            overview.reading, rememberLazyListState(),
+                            overview.value.reading, rememberLazyListState(),
                             onOpenBook = { bookId -> nav.navigate(bookPath(bookId)) { launchSingleTop = true } },
                             onRecord = { bookId, cycleId ->
                                 nav.navigate(recordPath(bookId, cycleId)) { launchSingleTop = true }
@@ -134,7 +134,7 @@ private fun JournalShell(
                             onMovePin = { bookId, direction -> onDemoAction(DemoAction.MovePin(bookId, direction)) }
                         )
                         RootTab.STATISTICS -> StatisticsOverview(
-                            overview.statistics, rememberScrollState(),
+                            overview.value.statistics, rememberScrollState(),
                             onStepPeriod = { onDemoAction(DemoAction.StepPeriod(it)) },
                             onOpen = { nav.navigate(it.route) { launchSingleTop = true } }
                         )
@@ -146,7 +146,7 @@ private fun JournalShell(
                 ShellPage(destination.title, onAction = { nav.popBackStack() }) {
                     val context = when (destination) {
                         StatisticsDestination.DYNAMICS, StatisticsDestination.RECORDS ->
-                            "Период обзора: ${overview.statistics.period.label}"
+                            "Период обзора: ${overview.value.statistics.period.label}"
                         else -> null
                     }
                     FuturePage("Экран в разработке", context)
@@ -154,7 +154,7 @@ private fun JournalShell(
             } }
             composable(BookRoute, arguments = listOf(navArgument("bookId") { type = NavType.StringType })) { page ->
                 val bookId = BookId(requireNotNull(page.arguments?.getString("bookId")))
-                val book = overview.reading.books.firstOrNull { it.id == bookId }
+                val book = overview.value.reading.books.firstOrNull { it.id == bookId }
                 ShellPage("Книга", onAction = { nav.popBackStack() }) {
                     FuturePage(book?.title ?: "Книга недоступна", book?.author)
                 }
@@ -165,7 +165,7 @@ private fun JournalShell(
             )) { page ->
                 val bookId = BookId(requireNotNull(page.arguments?.getString("bookId")))
                 val cycleId = CycleId(requireNotNull(page.arguments?.getString("cycleId")))
-                val book = overview.reading.books.firstOrNull { it.id == bookId && it.cycleId == cycleId }
+                val book = overview.value.reading.books.firstOrNull { it.id == bookId && it.cycleId == cycleId }
                 ShellPage("Записать чтение", onAction = { nav.popBackStack() }) {
                     Box(Modifier.fillMaxSize().testTag("record-destination-${bookId.value}-${cycleId.value}")) {
                         FuturePage(book?.title ?: "Цикл недоступен", book?.author)
@@ -180,7 +180,7 @@ private fun JournalShell(
                         Text("Демонстрационные настройки UI-01. Выбор темы не сохраняется после завершения процесса.")
                         Text("Тема", Modifier.semantics { heading() }, style = JournalType.section)
                         ThemeMode.entries.forEach { mode ->
-                            JournalChip(mode.label, state.theme == mode, { onTheme(mode) }, Modifier.fillMaxWidth())
+                            JournalChip(mode.label, state.value.theme == mode, { onTheme(mode) }, Modifier.fillMaxWidth())
                         }
                         if (BuildConfig.DEBUG) {
                             JournalButton("Каталог компонентов · debug", {
@@ -203,7 +203,7 @@ private fun JournalShell(
                             .verticalScroll(rememberScrollState()).padding(Space.lg),
                             verticalArrangement = Arrangement.spacedBy(Space.md)) {
                             DemoScenario.entries.forEach { scenario ->
-                                JournalChip(scenario.title, overview.scenario == scenario,
+                                JournalChip(scenario.title, overview.value.scenario == scenario,
                                     { onDemoAction(DemoAction.SelectScenario(scenario)) }, Modifier.fillMaxWidth())
                             }
                         }
