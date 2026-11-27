@@ -20,7 +20,7 @@
 
 ## Сборка
 
-Один модуль `:app`, JDK 17.0.21+9, Gradle Wrapper 9.9.2, AGP 9.5.2, Kotlin/compiler 2.4.21, Compose BOM 2026.11.01, Lifecycle 2.11.1. SDK platform 37.1, Build Tools 36.0.0, platform-tools; minSdk 26, compileSdk 37.1, targetSdk 37. Четыре версии и необходимое, отдельно разрешённое владельцем повышение compileSdk — технический [FIX-01](docs/acceptance/FIX-01.md), без изменения интерфейсного кода; исходный стек UI-01 и его ограничения — [ADR-10](docs/decisions/adr/ADR-10-ui01-toolchain-and-shell.md). Установить SDK штатными инструментами Android, указать его локально через `ANDROID_HOME` или некоммитимый `local.properties`.
+Один модуль `:app`, JDK 17.0.21+9, Gradle Wrapper 9.9.2, AGP 9.5.3, Kotlin/compiler 2.4.21, Compose BOM 2026.11.01, Lifecycle 2.11.1. SDK platform 37.1, Build Tools 36.0.0, platform-tools; minSdk 26, compileSdk 37.1, targetSdk 37. Обновление AGP до 9.5.3 для UI-02 описано в [отчёте UI-02](docs/acceptance/UI-02.md). Четыре версии и необходимое, отдельно разрешённое владельцем повышение compileSdk — технический [FIX-01](docs/acceptance/FIX-01.md), без изменения интерфейсного кода; исходный стек UI-01 и его ограничения — [ADR-10](docs/decisions/adr/ADR-10-ui01-toolchain-and-shell.md). Установить SDK штатными инструментами Android, указать его локально через `ANDROID_HOME` или некоммитимый `local.properties`.
 
 ```sh
 ./gradlew :app:assembleDebug :app:lintDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest
