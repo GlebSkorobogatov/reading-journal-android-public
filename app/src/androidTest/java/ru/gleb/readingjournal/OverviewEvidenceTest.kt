@@ -225,7 +225,8 @@ class OverviewEvidenceTest {
         val tabs = rule.onAllNodes(tab).fetchSemanticsNodes()
         assertTrue(viewport.height > 0f)
         for (item in tabs) {
-            assertTrue(viewport.bottom <= item.boundsInRoot.top + 1f)
+            assertTrue("The feed extends under the island instead of stopping above it",
+                viewport.bottom > item.boundsInRoot.top + 1f)
             assertTrue(item.size.width / density >= 47.5f && item.size.height / density >= 47.5f)
         }
     }

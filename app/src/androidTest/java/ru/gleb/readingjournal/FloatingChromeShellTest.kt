@@ -2,9 +2,13 @@ package ru.gleb.readingjournal
 
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
 import androidx.activity.BackEventCompat
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -14,6 +18,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import ru.gleb.readingjournal.app.MainActivity
+import ru.gleb.readingjournal.app.ShellViewModel
+import ru.gleb.readingjournal.app.ThemeMode
 import ru.gleb.readingjournal.demo.DemoAction
 import ru.gleb.readingjournal.demo.DemoScenario
 import ru.gleb.readingjournal.demo.ReadingDemoViewModel
@@ -43,6 +49,54 @@ class FloatingChromeShellTest {
         rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
         rule.onNode(tab and hasText("Статистика")).assertIsSelected()
         rule.onAllNodes(tab).assertCountEquals(3)
+    }
+
+    @Test fun contentPassesBehindTheIslandsInBothThemes() {
+        rule.runOnIdle {
+            ViewModelProvider(rule.activity)[ReadingDemoViewModel::class.java]
+                .onAction(DemoAction.SelectScenario(DemoScenario.MANY))
+        }
+        for ((mode, name) in listOf(ThemeMode.LIGHT to "light", ThemeMode.DARK to "dark")) {
+            rule.runOnIdle {
+                ViewModelProvider(rule.activity)[ShellViewModel::class.java].selectTheme(mode)
+            }
+            rule.onNodeWithTag("reading-subtitle").assertIsDisplayed()
+            shot("overlay-$name-visible")
+            rule.onNodeWithTag("reading-feed").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 360f) }
+            rule.waitForIdle()
+            assertEquals(0f, chromeProgress(), 0.001f)
+            shot("overlay-$name-behind")
+            rule.onNodeWithTag("reading-feed").performTouchInput { swipeUp() }
+            rule.waitForIdle()
+            assertEquals(1f, chromeProgress(), 0.02f)
+            shot("overlay-$name-hidden")
+            rule.onNodeWithTag("reading-feed").performTouchInput { swipeDown() }
+            rule.waitForIdle()
+            assertEquals(0f, chromeProgress(), 0.02f)
+            shot("overlay-$name-restored")
+            rule.onNodeWithTag("reading-feed").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, -100_000f) }
+            rule.waitForIdle()
+        }
+    }
+
+    @Test fun realFeedExtendsUnderTheIslandsAndTheLastBookClearsThem() {
+        rule.runOnIdle {
+            ViewModelProvider(rule.activity)[ReadingDemoViewModel::class.java]
+                .onAction(DemoAction.SelectScenario(DemoScenario.MANY))
+        }
+        val root = rule.onNodeWithTag("chrome-root").fetchSemanticsNode().boundsInRoot
+        val feed = rule.onNodeWithTag("reading-feed").fetchSemanticsNode().boundsInRoot
+        val tabs = rule.onNode(tab and hasText("Библиотека")).fetchSemanticsNode().boundsInRoot
+        assertEquals(root.top, feed.top, 1f)
+        assertEquals(root.bottom, feed.bottom, 1f)
+        assertTrue(feed.bottom > tabs.top + 1f)
+        rule.onNodeWithTag("reading-feed").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 100_000f) }
+        rule.waitForIdle()
+        val book = rule.onNodeWithTag("book-extra-12").fetchSemanticsNode().boundsInRoot
+        assertTrue("last book ${book.bottom} tabs ${tabs.top}", book.bottom <= tabs.top + 1f)
+        val progress = rule.onNodeWithTag("chrome-progress", useUnmergedTree = true)
+            .fetchSemanticsNode().config[SemanticsProperties.StateDescription].toFloat()
+        assertEquals(0f, progress, 0.001f)
     }
 
     @Test fun emptyReadingAndHorizontalMotionKeepTheIslands() {
@@ -106,6 +160,19 @@ class FloatingChromeShellTest {
             rule.onAllNodes(tab).assertCountEquals(3)
             rule.onNode(tab and hasText("Читаю сейчас")).assertIsSelected()
         }
+    }
+
+    private fun chromeProgress(): Float = rule.onNodeWithTag("chrome-progress", useUnmergedTree = true)
+        .fetchSemanticsNode().config[SemanticsProperties.StateDescription].toFloat()
+
+    private fun shot(name: String) {
+        rule.waitForIdle()
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        automation.waitForIdle(1_000, 3_000)
+        val bitmap = automation.takeScreenshot() ?: return
+        val file = File(rule.activity.filesDir, "screenshots/$name.png")
+        file.parentFile?.mkdirs()
+        file.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
     }
 
     private fun settingsBounds(): Rect {

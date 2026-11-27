@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -47,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -80,8 +80,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-/** Clearance that scrolling content adds above its first item. The bottom clearance is layout padding on the shell. */
-internal data class ChromeObstruction(val top: Dp = 0.dp)
+/**
+ * Space the scrollable content keeps clear at its start and end.
+ * It is content padding, not a viewport inset, so items travel behind the islands.
+ */
+internal data class ChromeObstruction(val top: Dp = 0.dp, val bottom: Dp = 0.dp)
 
 internal val LocalChromeObstruction = staticCompositionLocalOf { ChromeObstruction() }
 
@@ -104,8 +107,8 @@ internal fun systemTouchExplorationEnabled(): Boolean {
 
 /**
  * Floating title, action and, on the three root tabs, the navigation island.
- * They share one progress: 0 is at rest, 1 is off screen. Scroll padding at the bottom tracks that
- * progress so the freed band is used; the top inset stays in the scroll content so items do not jump.
+ * They share one progress: 0 is at rest, 1 is off screen. The scroll viewport is the whole screen.
+ * Start and end clearance stay in the scroll content and do not follow the animation, so items do not jump.
  */
 @Composable
 internal fun JournalChrome(
@@ -139,10 +142,7 @@ internal fun JournalChrome(
     }
     val hidden = progress.value >= 1f
     val topPx = statusPx + titleBandPx + gapPx
-    // One pixel keeps the scroll viewport from rounding onto the island. Overview evidence requires
-    // the feed to end at or above the tabs.
-    val slack = if (progress.value >= 1f) 0 else 1
-    val bottomPx = navPx + (bandPx * (1f - progress.value)).roundToInt() + slack
+    val bottomPx = navPx + bandPx
     val topTravel = -((statusPx + titleBandPx) * progress.value).roundToInt()
     val bottomTravel = ((navPx + bandPx) * progress.value).roundToInt()
     val alpha = 1f - progress.value
@@ -158,12 +158,13 @@ internal fun JournalChrome(
                     }
                 }
                 .nestedScroll(connection)
-                .padding(bottom = with(density) { bottomPx.toDp() })
-                .consumeWindowInsets(WindowInsets(bottom = with(density) { bottomPx.toDp() }))
                 .imePadding(),
         ) {
             CompositionLocalProvider(
-                LocalChromeObstruction provides ChromeObstruction(with(density) { topPx.toDp() }),
+                LocalChromeObstruction provides ChromeObstruction(
+                    top = with(density) { topPx.toDp() },
+                    bottom = with(density) { bottomPx.toDp() },
+                ),
             ) { content() }
         }
         Box(Modifier.testTag("chrome-progress").semantics {
@@ -178,7 +179,7 @@ internal fun JournalChrome(
                 verticalAlignment = Alignment.Top) {
                 BoxWithConstraints(Modifier.weight(1f)) {
                     Box(Modifier.widthIn(max = maxWidth).wrapContentWidth(Alignment.Start).testTag("chrome-title")) {
-                        Surface(shape = JournalShape.largeCard, color = LocalJournalColors.current.surface,
+                        Surface(shape = JournalShape.islandCapsule, color = LocalJournalColors.current.surface,
                             border = BorderStroke(Metric.border, LocalJournalColors.current.outline),
                             shadowElevation = Metric.shadow) {
                             Text(title, Modifier.padding(horizontal = Space.lg, vertical = Space.md).semantics { heading() },
@@ -187,13 +188,15 @@ internal fun JournalChrome(
                     }
                 }
                 Spacer(Modifier.width(Space.sm))
-                Box(Modifier.testTag("chrome-action")
+                Box(Modifier.testTag("chrome-action").size(Metric.touch)
+                    .clip(JournalShape.islandAction)
                     .semantics(mergeDescendants = true) { contentDescription = actionLabel }
                     .clickable(enabled = !hidden, onClick = onAction)) {
-                    Surface(shape = JournalShape.largeCard, color = LocalJournalColors.current.surface,
+                    Surface(Modifier.fillMaxSize(), shape = JournalShape.islandAction,
+                        color = LocalJournalColors.current.surface,
                         border = BorderStroke(Metric.border, LocalJournalColors.current.outline),
                         shadowElevation = Metric.shadow) {
-                        Box(Modifier.size(Metric.touch), contentAlignment = Alignment.Center) { LineIcon(actionLabel) }
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LineIcon(actionLabel) }
                     }
                 }
             }
@@ -202,13 +205,13 @@ internal fun JournalChrome(
             val colors = LocalJournalColors.current
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding()
                 .onSizeChanged { if (it.height > 0) bandPx = it.height }
-                .padding(start = Space.lg, end = Space.lg, bottom = Space.lg)
+                .padding(start = Space.lg, end = Space.lg, top = Space.sm, bottom = Space.lg)
                 .islandTravel(bottomTravel, alpha, hidden),
                 contentAlignment = Alignment.Center) {
                 BoxWithConstraints {
                     val share = maxWidth / tabs.size
                     Box(Modifier.wrapContentWidth().testTag("chrome-tabs")) {
-                    Surface(shape = JournalShape.largeCard, color = colors.surface,
+                    Surface(shape = JournalShape.islandCapsule, color = colors.surface,
                         border = BorderStroke(Metric.border, colors.outline), shadowElevation = Metric.shadow) {
                         Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.Center) {
                             tabs.forEach { label ->

@@ -184,14 +184,34 @@ class FloatingChromeTest {
     @Test fun firstAndLastRowsStayReachableAboveTheIsland() {
         rule.setContent { SamplePage { SampleFeed() } }
         rule.onNodeWithTag("item-0").assertIsDisplayed()
-        val titleBottom = rule.onNodeWithTag("chrome-title").fetchSemanticsNode().boundsInRoot.bottom
-        assertTrue(rule.onNodeWithTag("item-0").fetchSemanticsNode().boundsInRoot.top >= titleBottom - 1f)
-        rule.onNodeWithTag("feed").performScrollToNode(hasTestTag("item-29"))
+        assertTrue(bounds("item-0").top >= bounds("chrome-title").bottom - 1f)
+        rule.onNodeWithTag("feed").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 100_000f) }
+        rule.waitForIdle()
         rule.onNodeWithTag("item-29").assertIsDisplayed()
-        val item = rule.onNodeWithTag("item-29").fetchSemanticsNode().boundsInRoot
-        val tabs = rule.onNodeWithTag("chrome-tabs").fetchSemanticsNode().boundsInRoot
-        assertTrue(item.bottom <= tabs.top + 1f)
+        val item = bounds("item-29")
+        val tabs = bounds("chrome-tabs")
+        assertTrue("last ${item.bottom} tabs ${tabs.top}", item.bottom <= tabs.top + 1f)
         assertEquals(0f, progress(), 0.001f)
+    }
+
+    @Test fun islandsOverlayTheScrollViewportAndContentPassesBehindThem() {
+        rule.setContent { SamplePage { SampleFeed() } }
+        val root = bounds("chrome-root")
+        val feed = bounds("feed")
+        val title = bounds("chrome-title")
+        val tabs = bounds("chrome-tabs")
+        assertEquals(root.top, feed.top, 1f)
+        assertEquals(root.bottom, feed.bottom, 1f)
+        assertTrue("feed must extend under the navigation island", feed.bottom > tabs.top + 1f)
+        assertTrue("feed must extend under the title", feed.top < title.bottom - 1f)
+        val before = bounds("item-0").top
+        rule.onNodeWithTag("feed").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 160f) }
+        rule.waitForIdle()
+        val moved = bounds("item-0")
+        assertTrue(moved.top < before - 1f)
+        assertTrue("content passes behind the title", moved.top < title.bottom)
+        assertEquals(0f, progress(), 0.001f)
+        screenshot("floating-content-behind-light")
     }
 
     @Test fun hiddenIslandsAreNotInteractiveAndContentFocusRemains() {
@@ -296,6 +316,8 @@ class FloatingChromeTest {
                     val action = rule.onNodeWithTag("chrome-action").fetchSemanticsNode().size
                     assertTrue("action ${action.width}x${action.height} scale=$scale",
                         action.width / base >= 47.5f && action.height / base >= 47.5f)
+                    assertEquals("settings island stays square so the circle token is a circle",
+                        action.width, action.height)
                     val nodes = rule.onAllNodes(tab).fetchSemanticsNodes()
                     assertEquals(3, nodes.size)
                     for (node in nodes) {
@@ -305,6 +327,7 @@ class FloatingChromeTest {
                     val gear = rule.onNodeWithTag("chrome-action").fetchSemanticsNode().boundsInRoot
                     val root = rule.onNodeWithTag("chrome-root").fetchSemanticsNode().boundsInRoot
                     val tabs = rule.onNodeWithTag("chrome-tabs").fetchSemanticsNode().boundsInRoot
+                    assertTrue("navigation island stays a wide capsule at scale=$scale", tabs.width > tabs.height)
                     assertTrue(title.right <= gear.left + 1f)
                     assertTrue(tabs.left > root.left + base)
                     assertTrue(tabs.right < root.right - base)
@@ -320,10 +343,19 @@ class FloatingChromeTest {
     @Test fun darkThemeShowsAndHidesTheSameIslands() {
         rule.setContent { SamplePage(mode = ThemeMode.DARK) { SampleFeed() } }
         screenshot("floating-visible-dark")
+        rule.onNodeWithTag("feed").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 160f) }
+        rule.waitForIdle()
+        assertEquals(0f, progress(), 0.001f)
+        assertTrue(bounds("item-0").top < bounds("chrome-title").bottom)
+        screenshot("floating-content-behind-dark")
         rule.onNodeWithTag("feed").performTouchInput { swipeUp() }
         rule.waitForIdle()
         assertEquals(1f, progress(), 0.02f)
         screenshot("floating-hidden-dark")
+        rule.onNodeWithTag("feed").performTouchInput { swipeDown() }
+        rule.waitForIdle()
+        assertEquals(0f, progress(), 0.02f)
+        screenshot("floating-restored-dark")
     }
 
     @Composable private fun SamplePage(mode: ThemeMode = ThemeMode.LIGHT, autoHide: Boolean = true,
@@ -334,9 +366,9 @@ class FloatingChromeTest {
     }
 
     @Composable private fun SampleFeed() {
-        val top = LocalChromeObstruction.current.top
+        val chrome = LocalChromeObstruction.current
         LazyColumn(Modifier.fillMaxSize().testTag("feed"),
-            contentPadding = PaddingValues(top = top, bottom = 16.dp)) {
+            contentPadding = PaddingValues(top = chrome.top, bottom = chrome.bottom)) {
             items(30) { index -> Text("Строка $index", Modifier.fillMaxWidth().height(56.dp).testTag("item-$index")) }
         }
     }
@@ -352,7 +384,9 @@ class FloatingChromeTest {
     private fun progress(): Float = rule.onNodeWithTag("chrome-progress", useUnmergedTree = true)
         .fetchSemanticsNode().config[SemanticsProperties.StateDescription].toFloat()
 
-    private fun top(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.top
+    private fun top(tag: String) = bounds(tag).top
+
+    private fun bounds(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
 
     private fun screenshot(name: String) {
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return

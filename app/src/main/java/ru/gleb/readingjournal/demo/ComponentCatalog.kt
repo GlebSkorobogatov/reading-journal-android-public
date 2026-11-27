@@ -35,9 +35,9 @@ fun ComponentCatalog() {
     var selected by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf(false) }
     var sheet by remember { mutableStateOf(false) }
-    val top = LocalChromeObstruction.current.top
+    val chrome = LocalChromeObstruction.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-        .padding(start = Space.lg, end = Space.lg, bottom = Space.lg, top = top + Space.lg),
+        .padding(start = Space.lg, end = Space.lg, bottom = chrome.bottom + Space.lg, top = chrome.top + Space.lg),
         verticalArrangement = Arrangement.spacedBy(Space.lg)) {
         Text("Каталог UI-01 · только демонстрация", Modifier.semantics { heading() }, style = JournalType.screen)
         Text("Офлайн-компоненты. Нажатия не изменяют книги или пользовательские данные.")

@@ -174,9 +174,10 @@ private fun JournalShell(
             }
             composable("Настройки") {
                 ShellPage("Настройки", onAction = { nav.popBackStack() }) {
-                    val top = LocalChromeObstruction.current.top
+                    val chrome = LocalChromeObstruction.current
                     Column(Modifier.fillMaxSize().testTag("settings-content").verticalScroll(rememberScrollState())
-                        .padding(start = Space.lg, end = Space.lg, bottom = Space.lg, top = top + Space.lg),
+                        .padding(start = Space.lg, end = Space.lg, bottom = chrome.bottom + Space.lg,
+                            top = chrome.top + Space.lg),
                         verticalArrangement = Arrangement.spacedBy(Space.lg)) {
                         Text("Демонстрационные настройки UI-01. Выбор темы не сохраняется после завершения процесса.")
                         Text("Тема", Modifier.semantics { heading() }, style = JournalType.section)
@@ -200,9 +201,10 @@ private fun JournalShell(
                 }
                 composable("DemoScenarios") {
                     ShellPage("Наборы демонстрации", onAction = { nav.popBackStack() }) {
-                        val top = LocalChromeObstruction.current.top
+                        val chrome = LocalChromeObstruction.current
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                            .padding(start = Space.lg, end = Space.lg, bottom = Space.lg, top = top + Space.lg),
+                            .padding(start = Space.lg, end = Space.lg, bottom = chrome.bottom + Space.lg,
+                                top = chrome.top + Space.lg),
                             verticalArrangement = Arrangement.spacedBy(Space.md)) {
                             DemoScenario.entries.forEach { scenario ->
                                 JournalChip(scenario.title, overview.value.scenario == scenario,
@@ -235,8 +237,9 @@ private fun recordPath(bookId: BookId, cycleId: CycleId) =
 
 @Composable
 private fun FuturePage(title: String, context: String? = null) {
-    val top = LocalChromeObstruction.current.top
-    BoxWithConstraints(Modifier.fillMaxSize().padding(top = top).testTag("placeholder-viewport")) {
+    val chrome = LocalChromeObstruction.current
+    BoxWithConstraints(Modifier.fillMaxSize().padding(top = chrome.top, bottom = chrome.bottom)
+        .testTag("placeholder-viewport")) {
         val viewportHeight = maxHeight
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
             .heightIn(min = viewportHeight).padding(Space.lg),

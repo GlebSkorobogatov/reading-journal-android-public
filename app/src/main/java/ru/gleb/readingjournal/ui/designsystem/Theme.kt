@@ -1,6 +1,7 @@
 package ru.gleb.readingjournal.ui.designsystem
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -84,6 +85,10 @@ object JournalShape {
     val control = RoundedCornerShape(12.dp)
     val capsule = RoundedCornerShape(50)
     val sheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    /** Title and navigation islands. Half of the shorter side, so the pill follows the component. */
+    val islandCapsule = RoundedCornerShape(50)
+    /** Settings and back. A circle when the touch target is square. */
+    val islandAction = CircleShape
 }
 object Metric {
     val border = 1.dp; val focusBorder = 2.dp; val shadow = 0.dp
