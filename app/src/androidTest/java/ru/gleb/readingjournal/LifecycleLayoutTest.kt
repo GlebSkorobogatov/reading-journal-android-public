@@ -20,7 +20,7 @@ class LifecycleLayoutTest {
             rule.onNode(hasText("Библиотека") and hasClickAction()).performClick()
             rule.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
             rule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
-            rule.onNodeWithText("Библиотека · UI-01").assertIsDisplayed()
+            rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
             command("settings put system font_scale 2.0")
             rule.runOnUiThread { rule.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
             rule.waitUntil(30_000) {
