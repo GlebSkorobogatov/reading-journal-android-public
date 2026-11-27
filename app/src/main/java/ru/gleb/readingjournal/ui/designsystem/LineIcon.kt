@@ -8,9 +8,7 @@ import androidx.compose.ui.res.painterResource
 import ru.gleb.readingjournal.R
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -40,13 +38,17 @@ fun LineIcon(name: String) {
                     moveTo(13f, 16f); lineTo(13f, 8f)
                     moveTo(18f, 16f); lineTo(18f, 5f)
                 }, color, style = outline)
-                "Библиотека" -> libraryBooks().forEach { book ->
-                    // A book lying flat. The outline is the cover; the line near the bottom
-                    // is the page block facing the viewer. There is no spine.
-                    drawRoundRect(color, Offset(book.left, book.top), Size(book.width, book.height),
-                        CornerRadius(1.15f, 1.15f), style = outline)
-                    drawLine(color, Offset(book.left + 2.1f, book.pageY), Offset(book.right - 2.1f, book.pageY),
-                        strokeWidth = 1.5f, cap = StrokeCap.Round)
+                "Библиотека" -> {
+                    val pages = Stroke(1.15f, cap = StrokeCap.Round)
+                    libraryBooks().forEach { book ->
+                        // Open at the right: the fore-edge faces the viewer. The left curve is the binding.
+                        // The shorter inner lines are the page block, inset so the cover sticks out past them.
+                        drawPath(libraryCover(book), color, style = outline)
+                        book.pageYs.forEach { y ->
+                            drawLine(color, Offset(book.pageLeft, y), Offset(book.pageRight, y),
+                                strokeWidth = pages.width, cap = StrokeCap.Round)
+                        }
+                    }
                 }
                 "Вперёд", "Предыдущий период", "Следующий период" -> {
                     val backward = name == "Предыдущий период"
@@ -83,16 +85,37 @@ fun LineIcon(name: String) {
     }
 }
 
-/** Three books stacked one above another, each wider than it is tall, with different horizontal offsets. */
-internal data class LibraryBook(val left: Float, val top: Float, val right: Float, val bottom: Float) {
+/**
+ * One book lying with its page edges toward the viewer.
+ * [left] is the binding shoulder. [spine] is how far the binding curve's control point
+ * sits to the left of that shoulder. The cover is open on the right; [pageLeft]..[pageRight]
+ * is the page block, inset so both cover boards stick out past it.
+ */
+internal data class LibraryBook(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float,
+    val spine: Float,
+    val pageLeft: Float,
+    val pageRight: Float,
+) {
     val width: Float get() = right - left
     val height: Float get() = bottom - top
-    /** Page block, in the lower part of the cover, not a spine. */
-    val pageY: Float get() = bottom - 2.15f
+    val pageYs: List<Float> get() = listOf(top + height * 0.36f, top + height * 0.66f)
+}
+
+internal fun libraryCover(book: LibraryBook): Path = Path().apply {
+    val shoulder = book.left + 1.6f
+    val mid = (book.top + book.bottom) / 2f
+    moveTo(book.right, book.top)
+    lineTo(shoulder, book.top)
+    quadraticTo(book.left - book.spine, mid, shoulder, book.bottom)
+    lineTo(book.right - 0.45f, book.bottom)
 }
 
 internal fun libraryBooks(): List<LibraryBook> = listOf(
-    LibraryBook(6.4f, 0.9f, 20.6f, 6.5f),
-    LibraryBook(3.2f, 9.1f, 17.6f, 14.7f),
-    LibraryBook(4.8f, 17.3f, 19.6f, 22.9f),
+    LibraryBook(7.2f, 0.9f, 22.4f, 6.7f, spine = 1.7f, pageLeft = 10.5f, pageRight = 20.0f),
+    LibraryBook(1.6f, 9.2f, 17.0f, 15.0f, spine = 1.15f, pageLeft = 4.9f, pageRight = 14.5f),
+    LibraryBook(4.4f, 17.5f, 21.6f, 22.85f, spine = 1.7f, pageLeft = 7.7f, pageRight = 19.1f),
 )

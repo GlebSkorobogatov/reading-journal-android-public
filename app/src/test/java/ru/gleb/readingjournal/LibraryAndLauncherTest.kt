@@ -21,10 +21,23 @@ class LibraryAndLauncherTest {
         }
         books.forEach { book ->
             assertTrue("a lying book is wider than it is tall", book.width > book.height)
-            val lowerHalf = book.top + book.height / 2f
-            assertTrue("page edge sits in the lower half, not on a spine", book.pageY > lowerHalf)
-            assertTrue("page edge stays clear of the cover stroke", book.bottom - book.pageY >= 2f)
+            assertEquals(2, book.pageYs.size)
+            book.pageYs.forEach { y ->
+                assertTrue("page lines stay inside the cover", y > book.top + 1f && y < book.bottom - 1f)
+            }
+            assertTrue("page block is inset from both cover boards", book.pageLeft > book.left + 2f)
+            assertTrue(book.pageRight < book.right - 1.5f)
+            assertTrue("the binding control bends past the cover's shoulder", book.spine >= 1f)
+            val shoulder = book.left + 1.6f
+            val control = book.left - book.spine
+            val curveLeft = (shoulder + control) / 2f
+            assertTrue("the binding stays inside the 24 grid: $curveLeft", curveLeft > 0f)
+            assertTrue(book.right <= 23.5f)
+            assertTrue(book.bottom <= 23.5f)
         }
+        val icon = source("src/main/java/ru/gleb/readingjournal/ui/designsystem/LineIcon.kt")
+        assertTrue(icon.contains("quadraticTo"))
+        assertTrue(icon.contains("libraryBooks()"))
     }
 
     @Test fun readingAndStatisticsIconsStayTheOriginalDrawings() {

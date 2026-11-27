@@ -101,6 +101,7 @@ docs/decisions/adr/ADR-10-ui01-toolchain-and-shell.md
 docs/decisions/adr/ADR-11-ci-levels.md
 docs/decisions/adr/ADR-12-rev02-navigation.md
 docs/decisions/adr/ADR-13-floating-pager.md
+docs/decisions/adr/ADR-14-scroll-driven-chrome.md
 docs/decisions/adr/README.md
 docs/decisions/Дорожная_карта_Читательский_дневник_UI_first_v2.md
 docs/decisions/Читательский_дневник_спецификация_v2.04.md

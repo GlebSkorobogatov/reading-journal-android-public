@@ -30,7 +30,7 @@ fun StatisticsOverview(
     onOpen: (StatisticsDestination) -> Unit,
 ) {
     val chrome = LocalChromeObstruction.current
-    Column(Modifier.fillMaxSize().testTag("statistics-feed").verticalScroll(scroll)
+    Column(Modifier.chromeScroll().fillMaxSize().testTag("statistics-feed").verticalScroll(scroll)
         .padding(start = Space.lg, end = Space.lg, bottom = chrome.bottom, top = chrome.top + Space.lg),
         verticalArrangement = Arrangement.spacedBy(Space.md)) {
         CompactXp(state.xp) { onOpen(StatisticsDestination.ACHIEVEMENTS) }

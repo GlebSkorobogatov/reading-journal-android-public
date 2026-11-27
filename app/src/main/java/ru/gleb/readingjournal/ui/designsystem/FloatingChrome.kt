@@ -3,7 +3,6 @@ package ru.gleb.readingjournal.ui.designsystem
 import android.content.Context
 import android.view.accessibility.AccessibilityManager
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,7 +35,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableFloatState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,15 +51,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -76,14 +77,36 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 
 /**
  * Space the scrollable content keeps clear at its start and end.
  * It is content padding, not a viewport inset, so items travel behind the islands.
+ * It does not follow the hide progress, so the list does not jump.
  */
 internal data class ChromeObstruction(val top: Dp = 0.dp, val bottom: Dp = 0.dp)
 
 internal val LocalChromeObstruction = staticCompositionLocalOf { ChromeObstruction() }
+
+/** Vertical lists call [Modifier.chromeScroll] so the pager's horizontal gesture is not observed here. */
+internal val LocalChromeDriver = staticCompositionLocalOf<ChromeDriver?> { null }
+
+/**
+ * Preferred sector is 72 dp. Narrow windows shrink it, but not below 48 dp until that
+ * would overflow the capsule. The island width is three sectors plus the 12 dp insets.
+ */
+internal fun navigationSectorWidth(containerWidth: Dp): Dp {
+    if (!containerWidth.value.isFinite() || containerWidth <= 0.dp) return Metric.navSectorWidth
+    val gutters = Space.lg * 2 + Metric.navIslandInset * 2
+    val raw = ((containerWidth - gutters) / 3).coerceAtLeast(0.dp)
+    return when {
+        raw >= Metric.navSectorWidth -> Metric.navSectorWidth
+        raw >= Metric.touch -> raw
+        else -> raw
+    }
+}
+
+internal fun navigationIslandWidth(sectorWidth: Dp): Dp = sectorWidth * 3 + Metric.navIslandInset * 2
 
 @Composable
 internal fun systemTouchExplorationEnabled(): Boolean {
@@ -103,9 +126,35 @@ internal fun systemTouchExplorationEnabled(): Boolean {
 }
 
 /**
+ * Observes the vertical scroller this modifier is attached to.
+ * It does not wrap [androidx.compose.foundation.pager.HorizontalPager], and it consumes nothing,
+ * so a horizontal child and the pager still receive their own gestures.
+ * A finger is the pointer that is already down on the initial pass. Semantic ScrollBy is also
+ * reported as user input in this Compose version, and it has no pointer down, so it is ignored.
+ */
+@Composable
+internal fun Modifier.chromeScroll(): Modifier {
+    val driver = LocalChromeDriver.current ?: return this
+    val connection = remember(driver) { chromeConnection(driver) }
+    return this
+        .pointerInput(driver) {
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val down = event.changes.any { it.pressed }
+                    if (down && !driver.pointerDown) driver.onPointerDown()
+                    else if (!down && driver.pointerDown) driver.onPointerUp()
+                    driver.pointerDown = down
+                }
+            }
+        }
+        .nestedScroll(connection)
+}
+
+/**
  * Floating title, action and, on the three root tabs, the navigation island.
- * They share one progress: 0 is at rest, 1 is off screen. The scroll viewport is the whole screen.
- * Start and end clearance stay in the scroll content and do not follow the animation, so items do not jump.
+ * They share one progress: 0 is at rest, 1 is off screen. Progress is read in placement and draw,
+ * not in this composition, so the page underneath is not recomposed on every scroll step.
  */
 @Composable
 internal fun JournalChrome(
@@ -123,15 +172,16 @@ internal fun JournalChrome(
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
-    val slop = LocalViewConfiguration.current.touchSlop
-    val model = remember(slop) { ChromeModel(slop) }
-    val progress = remember { Animatable(0f) }
+    val colors = LocalJournalColors.current
+    val hidePx = with(density) { Metric.islandHideDistance.toPx() }
+    val progress = remember { mutableFloatStateOf(0f) }
+    val track = remember(hidePx) { ChromeTrack(hidePx) }
     val scope = rememberCoroutineScope()
-    val driver = remember(model) { ChromeDriver(model, progress, scope, Motion.island) }
+    val driver = remember(track, progress, scope) { ChromeDriver(track, progress, scope) }
     driver.autoHide = autoHide
     LaunchedEffect(autoHide) { if (!autoHide) driver.snapVisible() }
     LaunchedEffect(settledTab) { if (settledTab != null) driver.show() }
-    val connection = remember(driver) { chromeConnection(driver) }
+    val fullyHidden by remember { derivedStateOf { progress.floatValue >= 0.999f } }
     val statusPx = WindowInsets.statusBars.getTop(density)
     val navPx = WindowInsets.navigationBars.getBottom(density)
     val gapPx = with(density) { Space.sm.roundToPx() }
@@ -140,49 +190,31 @@ internal fun JournalChrome(
     }
     val tabsKey = tabs?.joinToString("\u0000")
     var bandPx by remember(tabsKey) {
-        mutableIntStateOf(if (tabs == null) 0 else with(density) { (Metric.navigation + Space.lg).roundToPx() })
+        mutableIntStateOf(if (tabs == null) 0 else with(density) { (Metric.navSectorHeight + Space.lg).roundToPx() })
     }
-    val hidden = progress.value >= 1f
     val topPx = statusPx + titleBandPx + gapPx
     val bottomPx = navPx + bandPx
-    val topTravel = -((statusPx + titleBandPx) * progress.value).roundToInt()
-    val bottomTravel = ((navPx + bandPx) * progress.value).roundToInt()
-    val alpha = islandAlpha(progress.value)
-    Box(Modifier.fillMaxSize().testTag("chrome-root")) {
-        Box(
-            Modifier.fillMaxSize()
-                .pointerInput(driver) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent(PointerEventPass.Initial)
-                            driver.pointerDown = event.changes.any { it.pressed }
-                        }
-                    }
-                }
-                .nestedScroll(connection)
-                .imePadding(),
-        ) {
+    Box(Modifier.fillMaxSize().background(colors.background).testTag("chrome-root")) {
+        Box(Modifier.fillMaxSize().imePadding()) {
             CompositionLocalProvider(
                 LocalChromeObstruction provides ChromeObstruction(
                     top = with(density) { topPx.toDp() },
                     bottom = with(density) { bottomPx.toDp() },
                 ),
+                LocalChromeDriver provides driver,
             ) { content() }
         }
-        Box(Modifier.testTag("chrome-progress").semantics {
-            stateDescription = String.format(Locale.US, "%.4f", progress.value)
-            hideFromAccessibility()
-        })
+        ChromeProgressLabel(progress)
         Column(Modifier.fillMaxWidth().statusBarsPadding()
             .onSizeChanged { if (it.height > 0) titleBandPx = it.height }
             .padding(start = Space.lg, end = Space.lg, top = Space.sm)
-            .islandTravel(topTravel, alpha, hidden)) {
+            .islandMotion(-(statusPx + titleBandPx), progress, fullyHidden)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top) {
                 BoxWithConstraints(Modifier.weight(1f)) {
                     Box(Modifier.widthIn(max = maxWidth).wrapContentWidth(Alignment.Start).testTag("chrome-title")) {
-                        Surface(shape = JournalShape.islandCapsule, color = LocalJournalColors.current.surface,
-                            border = BorderStroke(Metric.border, LocalJournalColors.current.outline),
+                        Surface(shape = JournalShape.islandCapsule, color = colors.surface,
+                            border = BorderStroke(Metric.border, colors.outline),
                             shadowElevation = Metric.shadow) {
                             Text(title, Modifier.padding(horizontal = Space.lg, vertical = Space.md).semantics { heading() },
                                 style = JournalType.section)
@@ -192,11 +224,12 @@ internal fun JournalChrome(
                 Spacer(Modifier.width(Space.sm))
                 Box(Modifier.testTag("chrome-action").size(Metric.touch)
                     .clip(JournalShape.islandAction)
-                    .semantics(mergeDescendants = true) { contentDescription = actionLabel }
-                    .clickable(enabled = !hidden, onClick = onAction)) {
+                    .then(if (fullyHidden) Modifier else Modifier
+                        .semantics(mergeDescendants = true) { contentDescription = actionLabel }
+                        .clickable(onClick = onAction))) {
                     Surface(Modifier.fillMaxSize(), shape = JournalShape.islandAction,
-                        color = LocalJournalColors.current.surface,
-                        border = BorderStroke(Metric.border, LocalJournalColors.current.outline),
+                        color = colors.surface,
+                        border = BorderStroke(Metric.border, colors.outline),
                         shadowElevation = Metric.shadow) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LineIcon(actionLabel) }
                     }
@@ -204,37 +237,40 @@ internal fun JournalChrome(
             }
         }
         if (tabs != null) {
-            val colors = LocalJournalColors.current
-            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding()
-                .onSizeChanged { if (it.height > 0) bandPx = it.height }
-                .padding(start = Space.lg, end = Space.lg, top = Space.sm, bottom = Space.lg)
-                .islandTravel(bottomTravel, alpha, hidden),
-                contentAlignment = Alignment.Center) {
+            BoxWithConstraints(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding()) {
+                val sector = navigationSectorWidth(maxWidth)
                 val fallback = tabs.indexOf(selectedTab).coerceAtLeast(0)
-                val position = (selection ?: fallback.toFloat()).coerceIn(0f, (tabs.lastIndex).toFloat())
+                val position = (selection ?: fallback.toFloat()).coerceIn(0f, tabs.lastIndex.toFloat())
                 val active = position.roundToInt().coerceIn(0, tabs.lastIndex)
-                Box(Modifier.wrapContentWidth().testTag("chrome-tabs")) {
-                    Surface(shape = JournalShape.islandCapsule, color = colors.surface,
-                        border = BorderStroke(Metric.border, colors.outline), shadowElevation = Metric.shadow) {
-                        Box(Modifier.padding(horizontal = Space.sm, vertical = Space.xs)) {
-                            // Drawn under the row so the line does not steal the touch target.
-                            Box(Modifier.align(Alignment.TopStart)
-                                .offset(x = Metric.touch * position + (Metric.touch - Metric.indicatorWidth) / 2)
-                                .padding(top = Space.xs)
-                                .size(Metric.indicatorWidth, Metric.indicatorHeight)
-                                .background(colors.accent)
-                                .testTag("tab-indicator"))
-                            Row(Modifier.selectableGroup()) {
-                                tabs.forEachIndexed { index, label ->
-                                    val selected = index == active
-                                    Box(Modifier.size(Metric.touch)
-                                        .selectable(selected = selected, enabled = !hidden, role = Role.Tab,
-                                            onClick = { if (!hidden) onTab(label) })
-                                        .semantics { contentDescription = label },
-                                        contentAlignment = Alignment.Center) {
-                                        CompositionLocalProvider(LocalContentColor provides
-                                            if (selected) colors.accent else colors.textSecondary) {
-                                            LineIcon(label)
+                Box(Modifier.fillMaxWidth()
+                    .onSizeChanged { if (it.height > 0) bandPx = it.height }
+                    .padding(start = Space.lg, end = Space.lg, top = Space.sm, bottom = Space.lg)
+                    .islandMotion(navPx + bandPx, progress, fullyHidden),
+                    contentAlignment = Alignment.Center) {
+                    Box(Modifier.wrapContentWidth().testTag("chrome-tabs")) {
+                        Surface(shape = JournalShape.islandCapsule, color = colors.surface,
+                            border = BorderStroke(Metric.border, colors.outline), shadowElevation = Metric.shadow) {
+                            Box(Modifier.padding(horizontal = Metric.navIslandInset)) {
+                                Box(Modifier.align(Alignment.TopStart)
+                                    .offset(x = sector * position + (sector - Metric.indicatorWidth) / 2)
+                                    .padding(top = Space.sm)
+                                    .size(Metric.indicatorWidth, Metric.indicatorHeight)
+                                    .background(colors.accent)
+                                    .testTag("tab-indicator"))
+                                Row(Modifier.selectableGroup()) {
+                                    tabs.forEachIndexed { index, label ->
+                                        val selected = index == active
+                                        Box(Modifier.size(sector, Metric.navSectorHeight)
+                                            .then(if (fullyHidden) Modifier else Modifier.selectable(
+                                                selected = selected,
+                                                role = Role.Tab,
+                                                onClick = { onTab(label) },
+                                            ).semantics { contentDescription = label }),
+                                            contentAlignment = Alignment.Center) {
+                                            CompositionLocalProvider(LocalContentColor provides
+                                                if (selected) colors.accent else colors.textSecondary) {
+                                                LineIcon(label)
+                                            }
                                         }
                                     }
                                 }
@@ -247,9 +283,24 @@ internal fun JournalChrome(
     }
 }
 
-private fun Modifier.islandTravel(travelPx: Int, alpha: Float, hidden: Boolean): Modifier = offset { IntOffset(0, travelPx) }
-    .graphicsLayer { this.alpha = alpha }
-    .then(if (hidden) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier)
+@Composable
+private fun ChromeProgressLabel(progress: MutableFloatState) {
+    val value = progress.floatValue
+    Box(Modifier.testTag("chrome-progress").semantics {
+        stateDescription = String.format(Locale.US, "%.4f", value)
+        hideFromAccessibility()
+    })
+}
+
+/**
+ * [distancePx] is the full travel, positive downward. Progress is read while placing and drawing
+ * so the pager is not recomposed for every pixel of the gesture.
+ * Fully hidden islands drop their click targets. The offset moves the rest with the drawing.
+ */
+private fun Modifier.islandMotion(distancePx: Int, progress: MutableFloatState, fullyHidden: Boolean): Modifier =
+    offset { IntOffset(0, (distancePx * progress.floatValue).roundToInt()) }
+        .graphicsLayer { alpha = islandAlpha(progress.floatValue) }
+        .then(if (fullyHidden) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier)
 
 private fun chromeConnection(driver: ChromeDriver) = object : NestedScrollConnection {
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset = Offset.Zero
@@ -258,59 +309,154 @@ private fun chromeConnection(driver: ChromeDriver) = object : NestedScrollConnec
         return Offset.Zero
     }
     override suspend fun onPreFling(available: Velocity): Velocity {
-        driver.flinging = driver.userGesture
+        driver.onPreFling()
         return Velocity.Zero
     }
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-        driver.userGesture = false
-        driver.flinging = false
+        driver.onPostFling()
         return Velocity.Zero
     }
 }
 
+/**
+ * Applies vertical scroll to one [ChromeTrack]. While the finger is down, progress is written
+ * directly and no animation is running. One settle animation starts only after that gesture and
+ * its fling, and a new finger cancels it before the next delta is applied.
+ */
 internal class ChromeDriver(
-    private val model: ChromeModel,
-    private val progress: Animatable<Float, AnimationVector1D>,
+    private val track: ChromeTrack,
+    private val progress: MutableFloatState,
     private val scope: CoroutineScope,
-    private val durationMillis: Int,
 ) {
     var pointerDown = false
-    var userGesture = false
-    var flinging = false
     var autoHide = true
+
+    init {
+        track.snap(progress.floatValue)
+    }
+
+    private var userGesture = false
+    private var flinging = false
+    private var awaitingEnd = false
+    private var releaseToken = 0
+    private var epoch = 0
     private var job: Job? = null
+
+    fun onPointerDown() {
+        releaseToken++
+        flinging = false
+        awaitingEnd = true
+        cancelSettle()
+    }
+
+    fun onPointerUp() {
+        val token = releaseToken
+        scope.launch {
+            // The scrollable dispatches its fling on this same turn, before the next resume.
+            yield()
+            if (token != releaseToken || pointerDown || flinging || !awaitingEnd || !autoHide) return@launch
+            awaitingEnd = false
+            settle()
+        }
+    }
 
     fun onScroll(source: NestedScrollSource, consumed: Offset, available: Offset) {
         if (!autoHide) return
-        // Semantic ScrollBy is also UserInput in this Compose version. A finger is the pointer
-        // that is already down on the initial pass; everything else is programmatic.
         if (source == NestedScrollSource.UserInput && !pointerDown) return
-        if (source == NestedScrollSource.UserInput) userGesture = true
         val user = source == NestedScrollSource.UserInput && pointerDown
-        val flingSample = source == NestedScrollSource.SideEffect && flinging && abs(consumed.y) >= model.slop / 2f
-        val boundary = user || (source == NestedScrollSource.SideEffect && flinging)
-        if (!user && !flingSample && !boundary) return
+        val flingSample = source == NestedScrollSource.SideEffect && flinging
+        if (!user && !flingSample) return
         when (val sample = classifyScroll(consumed.x, consumed.y, available.x, available.y)) {
-            is ChromeSample.Moved -> if (user || flingSample) model.accept(sample.towardEnd)?.let(::animate)
-            ChromeSample.OverscrollAtStart -> if (boundary) model.forceVisible()?.let(::animate)
+            is ChromeSample.Moved -> {
+                if (user) {
+                    userGesture = true
+                    flinging = false
+                    cancelSettle()
+                }
+                awaitingEnd = true
+                progress.floatValue = track.move(sample.towardEnd)
+            }
+            ChromeSample.OverscrollAtStart -> {
+                if (user) {
+                    userGesture = true
+                    flinging = false
+                    cancelSettle()
+                }
+                awaitingEnd = true
+                progress.floatValue = track.showCompletely()
+            }
             ChromeSample.OverscrollAtEnd, ChromeSample.Ignored -> Unit
         }
     }
 
+    fun onPreFling() {
+        flinging = userGesture
+    }
+
+    fun onPostFling() {
+        // A new finger already down owns the progress; the fling that just ended must not pull it away.
+        val shouldSettle = awaitingEnd && autoHide && !pointerDown
+        flinging = false
+        userGesture = false
+        if (shouldSettle) {
+            awaitingEnd = false
+            settle()
+        }
+    }
+
     fun snapVisible() {
-        model.reset()
-        job?.cancel()
-        job = scope.launch { progress.snapTo(0f) }
+        releaseToken++
+        awaitingEnd = false
+        userGesture = false
+        flinging = false
+        cancelSettle()
+        track.showCompletely()
+        progress.floatValue = 0f
     }
 
     fun show() {
-        model.forceVisible()?.let(::animate)
+        // A finished page change wins over a list fling that is still reporting samples.
+        releaseToken++
+        flinging = false
+        userGesture = false
+        awaitingEnd = false
+        if (track.progress <= 0.001f && progress.floatValue <= 0.001f) return
+        animateTo(0f)
     }
 
-    private fun animate(target: ChromeTarget) {
-        val to = if (target == ChromeTarget.HIDDEN) 1f else 0f
-        if (job?.isActive == true && progress.targetValue == to) return
+    private fun settle() {
+        animateTo(track.settleTarget())
+    }
+
+    private fun animateTo(target: Float) {
+        val from = progress.floatValue.coerceIn(0f, 1f)
+        track.snap(from)
+        if (abs(from - target) <= 0.001f) {
+            track.snap(target)
+            progress.floatValue = target
+            return
+        }
+        cancelSettle()
+        val ticket = epoch
+        job = scope.launch {
+            val anim = Animatable(from)
+            anim.updateBounds(0f, 1f)
+            anim.animateChrome(target, settleDurationMillis(from, target)) { value ->
+                if (ticket == epoch) {
+                    track.snap(value)
+                    progress.floatValue = value
+                }
+            }
+            if (ticket == epoch) {
+                track.snap(target)
+                progress.floatValue = target
+            }
+        }
+    }
+
+    private fun cancelSettle() {
+        epoch++
         job?.cancel()
-        job = scope.launch { progress.animateChrome(to, durationMillis) }
+        job = null
     }
 }

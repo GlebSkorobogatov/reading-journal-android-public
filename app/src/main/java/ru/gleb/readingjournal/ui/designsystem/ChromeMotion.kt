@@ -6,27 +6,26 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
- * Symmetric ease-in-out. Both control points sit on the 0 and 1 lines,
- * so the curve starts and ends at rest and never overshoots.
+ * Ease-in-out used only to finish a gesture at the nearer rest state.
+ * Both control points sit on the 0 and 1 lines, so the curve never overshoots.
+ * The islands' travel during the gesture is not this curve: it follows the scroll.
  */
 internal val IslandEasing: Easing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
 
 /**
- * The island stays opaque while it is still mostly on screen and only fades
- * as it leaves. The fade is a smoothstep, so it has no hard edge of its own.
- * One function of progress keeps the fade and the return on the same path.
+ * Hiding is the move off screen. Alpha stays at 1 until the island is almost gone,
+ * then eases out so the last pixels of the shadow do not pop. It is not how the island disappears.
  */
 internal fun islandAlpha(progress: Float): Float {
-    val start = 0.7f
+    val start = 0.92f
     if (progress <= start) return 1f
     val t = ((progress - start) / (1f - start)).coerceIn(0f, 1f)
     val smooth = t * t * (3f - 2f * t)
     return 1f - smooth
 }
-
-internal enum class ChromeTarget { VISIBLE, HIDDEN }
 
 internal sealed class ChromeSample {
     data class Moved(val towardEnd: Float) : ChromeSample()
@@ -38,13 +37,16 @@ internal sealed class ChromeSample {
 /**
  * Classifies one nested-scroll sample.
  *
- * Compose reports the pointer delta here: a finger moving up (toward the end of a vertical list)
- * has a negative y. The list's own scroll offset uses the opposite sign. Overscroll keeps that
- * pointer sign, so a leftover negative y is the end of the list and a leftover positive y is the start.
+ * Compose reports the pointer delta: a finger moving up (toward the end of a vertical list)
+ * has a negative y. Overscroll keeps that sign, so a leftover negative y is the end of the list
+ * and a leftover positive y is the start. Horizontal motion is ignored so a pager swipe is not a hide.
+ * Reaching the start while still pulling toward it restores the islands even if the accumulator
+ * has not unwound, because the list cannot move any further.
  */
 internal fun classifyScroll(consumedX: Float, consumedY: Float, availableX: Float, availableY: Float): ChromeSample {
     if (abs(consumedX) > abs(consumedY) && abs(consumedX) >= SAMPLE_EPSILON) return ChromeSample.Ignored
-    if (abs(consumedY) < SAMPLE_EPSILON && abs(consumedX) < SAMPLE_EPSILON) {
+    val consumedVertical = abs(consumedY) >= SAMPLE_EPSILON
+    if (!consumedVertical && abs(consumedX) < SAMPLE_EPSILON) {
         val vertical = abs(availableY) >= abs(availableX)
         return when {
             vertical && availableY > SAMPLE_EPSILON -> ChromeSample.OverscrollAtStart
@@ -52,56 +54,60 @@ internal fun classifyScroll(consumedX: Float, consumedY: Float, availableX: Floa
             else -> ChromeSample.Ignored
         }
     }
-    if (abs(consumedY) < SAMPLE_EPSILON) return ChromeSample.Ignored
+    if (!consumedVertical) return ChromeSample.Ignored
+    val hitStart = consumedY > 0f && availableY > SAMPLE_EPSILON && abs(availableY) >= abs(availableX)
+    if (hitStart) return ChromeSample.OverscrollAtStart
     return ChromeSample.Moved(towardEnd = -consumedY)
 }
 
 /**
- * One visibility decision for every island on the current screen.
- * Progress itself lives in an Animatable so a reversal continues from the current value.
- * [slop] is the touch slop in pixels. Movement below it, and any opposite twitch, does not switch the target.
+ * One continuous progress for every island on the screen.
+ * 0 is fully visible, 1 is fully hidden. [hideDistancePx] of consumed vertical scroll covers that range.
+ * The value follows the consumed delta directly: it stops when the finger stops and reverses with it.
  */
-internal class ChromeModel(val slop: Float) {
-    var target: ChromeTarget = ChromeTarget.VISIBLE
+internal class ChromeTrack(val hideDistancePx: Float) {
+    init {
+        require(hideDistancePx > 0f)
+    }
+
+    var progress: Float = 0f
         private set
-    private var pending = 0f
-    private var pendingTowardEnd = true
 
-    fun accept(towardEnd: Float): ChromeTarget? {
-        if (abs(towardEnd) < SAMPLE_EPSILON) return null
-        val towardEndNow = towardEnd > 0f
-        if (towardEndNow != pendingTowardEnd) {
-            pending = 0f
-            pendingTowardEnd = towardEndNow
-        }
-        val desired = if (towardEndNow) ChromeTarget.HIDDEN else ChromeTarget.VISIBLE
-        if (desired == target) {
-            pending = 0f
-            return null
-        }
-        pending += abs(towardEnd)
-        if (pending < slop) return null
-        pending = 0f
-        target = desired
-        return desired
+    fun move(towardEndPx: Float): Float {
+        if (abs(towardEndPx) < SAMPLE_EPSILON) return progress
+        progress = (progress + towardEndPx / hideDistancePx).coerceIn(0f, 1f)
+        return progress
     }
 
-    fun forceVisible(): ChromeTarget? {
-        pending = 0f
-        if (target == ChromeTarget.VISIBLE) return null
-        target = ChromeTarget.VISIBLE
-        return ChromeTarget.VISIBLE
+    fun showCompletely(): Float {
+        progress = 0f
+        return progress
     }
 
-    fun reset() {
-        pending = 0f
-        pendingTowardEnd = true
-        target = ChromeTarget.VISIBLE
+    fun snap(value: Float): Float {
+        progress = value.coerceIn(0f, 1f)
+        return progress
+    }
+
+    /** Nearest rest position after the finger and its fling have finished. */
+    fun settleTarget(): Float = if (progress >= 0.5f) 1f else 0f
+}
+
+/** Settle time shrinks with the distance still left, and never exceeds [fullMillis]. */
+internal fun settleDurationMillis(from: Float, to: Float, fullMillis: Int = Motion.island): Int {
+    val remaining = abs(to - from).coerceIn(0f, 1f)
+    if (remaining <= 0.001f) return 1
+    return (fullMillis * remaining).roundToInt().coerceIn(1, fullMillis)
+}
+
+internal suspend fun Animatable<Float, AnimationVector1D>.animateChrome(
+    target: Float,
+    durationMillis: Int,
+    onFrame: (Float) -> Unit = {},
+) {
+    animateTo(target, tween(durationMillis = durationMillis, easing = IslandEasing)) {
+        onFrame(value)
     }
 }
 
-internal suspend fun Animatable<Float, AnimationVector1D>.animateChrome(target: Float, durationMillis: Int) {
-    animateTo(target, tween(durationMillis = durationMillis, easing = IslandEasing))
-}
-
-private const val SAMPLE_EPSILON = 0.5f
+internal const val SAMPLE_EPSILON = 0.5f

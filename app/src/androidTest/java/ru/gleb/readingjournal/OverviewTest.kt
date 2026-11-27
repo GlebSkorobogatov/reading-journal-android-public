@@ -25,8 +25,9 @@ class OverviewTest {
         assertEquals(listOf("Читаю сейчас", "Статистика", "Библиотека"),
             tabs.map { it.config[SemanticsProperties.ContentDescription].single() })
         rule.onNode(tab and hasContentDescription("Читаю сейчас")).assertIsSelected()
-        rule.onNodeWithTag("xp-card").assertDoesNotExist()
-        rule.onNodeWithTag("overview-metrics").assertDoesNotExist()
+        // The next page stays composed beside the viewport. It must not be on the reading screen.
+        rule.onNodeWithTag("xp-card").assertIsNotDisplayed()
+        rule.onNodeWithTag("overview-metrics").assertIsNotDisplayed()
         rule.onNodeWithTag("record-atlas").showBookPart("record-atlas").performClick()
         rule.onNodeWithText("Атлас тихих открытий").assertIsDisplayed()
         rule.onNodeWithText("Записать чтение").assertIsDisplayed()

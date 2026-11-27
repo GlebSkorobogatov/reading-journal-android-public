@@ -36,7 +36,7 @@ fun ComponentCatalog() {
     var dialog by remember { mutableStateOf(false) }
     var sheet by remember { mutableStateOf(false) }
     val chrome = LocalChromeObstruction.current
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+    Column(Modifier.chromeScroll().fillMaxSize().verticalScroll(rememberScrollState())
         .padding(start = Space.lg, end = Space.lg, bottom = chrome.bottom + Space.lg, top = chrome.top + Space.lg),
         verticalArrangement = Arrangement.spacedBy(Space.lg)) {
         Text("Каталог UI-01 · только демонстрация", Modifier.semantics { heading() }, style = JournalType.screen)

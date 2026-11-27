@@ -76,7 +76,8 @@ class ChromeAnimationTest {
     @Test fun alphaFollowsTheMoveAndDoesNotVanishEarly() {
         assertEquals(1f, islandAlpha(0f), 0.001f)
         assertEquals(1f, islandAlpha(0.7f), 0.001f)
-        val fading = islandAlpha(0.85f)
+        assertEquals(1f, islandAlpha(0.92f), 0.001f)
+        val fading = islandAlpha(0.96f)
         assertTrue("alpha=$fading", fading > 0.15f && fading < 0.85f)
         assertEquals(0f, islandAlpha(1f), 0.001f)
         var previous = 1f
@@ -91,7 +92,6 @@ class ChromeAnimationTest {
 
     @Test fun islandTimingDoesNotReplaceTheSharedTransition() {
         assertEquals(350, Motion.island)
-        assertEquals(350, Motion.page)
         assertEquals(250, Motion.transition)
     }
 

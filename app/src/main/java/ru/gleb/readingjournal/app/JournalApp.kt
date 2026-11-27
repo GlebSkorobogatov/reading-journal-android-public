@@ -8,6 +8,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.activity.SystemBarStyle
 import androidx.activity.BackEventCompat
 import androidx.activity.compose.BackHandler
@@ -83,6 +85,12 @@ private fun JournalShell(
 ) {
     val nav = rememberNavController()
     Surface(Modifier.fillMaxSize().testTag("theme-${LocalJournalDark.current}"), color = LocalJournalColors.current.background) {
+        // Navigation 2.10 draws the forward destination above the previous one, and on a pop
+        // keeps the outgoing destination above (its z is not lowered). Settings therefore slides
+        // over the root. Each destination paints its own opaque background in JournalChrome;
+        // without that, the root shows through the sliding sheet and the two chromes mix.
+        // Record and the other children keep the crossfade. Predictive Back seeks the same slide
+        // and must not use the platform scaleOut.
         NavHost(nav, RootRoute, Modifier.fillMaxSize()
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).clipToBounds(),
             enterTransition = {
@@ -100,8 +108,6 @@ private fun JournalShell(
                 if (isSettingsReturn()) slideOutHorizontally(tween(Motion.transition)) { it }
                 else fadeOut(tween(Motion.transition))
             },
-            // Navigation 2.10 has separate predictive defaults, including scaleOut(0.7).
-            // Translate the opaque, full-size Settings page with the gesture; never shrink it.
             predictivePopEnterTransition = { _ ->
                 if (isSettingsReturn()) EnterTransition.None else fadeIn(tween(Motion.transition))
             },
@@ -144,7 +150,7 @@ private fun JournalShell(
             composable("Настройки") {
                 ShellPage("Настройки", onAction = { nav.popBackStack() }) {
                     val chrome = LocalChromeObstruction.current
-                    Column(Modifier.fillMaxSize().testTag("settings-content").verticalScroll(rememberScrollState())
+                    Column(Modifier.chromeScroll().fillMaxSize().testTag("settings-content").verticalScroll(rememberScrollState())
                         .padding(start = Space.lg, end = Space.lg, bottom = chrome.bottom + Space.lg,
                             top = chrome.top + Space.lg),
                         verticalArrangement = Arrangement.spacedBy(Space.lg)) {
@@ -171,7 +177,7 @@ private fun JournalShell(
                 composable("DemoScenarios") {
                     ShellPage("Наборы демонстрации", onAction = { nav.popBackStack() }) {
                         val chrome = LocalChromeObstruction.current
-                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                        Column(Modifier.chromeScroll().fillMaxSize().verticalScroll(rememberScrollState())
                             .padding(start = Space.lg, end = Space.lg, bottom = chrome.bottom + Space.lg,
                                 top = chrome.top + Space.lg),
                             verticalArrangement = Arrangement.spacedBy(Space.md)) {
@@ -205,20 +211,24 @@ private fun RootPager(
     val scope = rememberCoroutineScope()
     val readingScroll = rememberLazyListState()
     val statisticsScroll = rememberScrollState()
-    val settle = remember { tween<Float>(durationMillis = Motion.page, easing = IslandEasing) }
+    // No bounce, and the release keeps the finger's velocity. A fixed-duration tween ignored it,
+    // so a short flick and a long drag finished in the same 350 ms and felt stuck.
+    val pageSpring = remember {
+        spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+    }
     val awayFromStart by remember { derivedStateOf { pager.currentPage != 0 || pager.settledPage != 0 } }
     val index by remember { derivedStateOf { pager.currentPage.coerceIn(0, RootTab.entries.lastIndex) } }
     val settled by remember { derivedStateOf { pager.settledPage.coerceIn(0, RootTab.entries.lastIndex) } }
     val position by remember { derivedStateOf { pager.currentPage + pager.currentPageOffsetFraction } }
     BackHandler(awayFromStart) {
-        scope.launch { pager.animateScrollToPage(0, animationSpec = settle) }
+        scope.launch { pager.animateScrollToPage(0, animationSpec = pageSpring) }
     }
     ShellPage(
         title = RootTab.entries[index].title,
         onAction = { nav.navigate("Настройки") { launchSingleTop = true } },
         onTab = { label ->
             val target = RootTab.entries.indexOfFirst { it.title == label }
-            if (target >= 0) scope.launch { pager.animateScrollToPage(target, animationSpec = settle) }
+            if (target >= 0) scope.launch { pager.animateScrollToPage(target, animationSpec = pageSpring) }
         },
         selection = position,
         settledTab = RootTab.entries[settled].title,
@@ -230,7 +240,7 @@ private fun RootPager(
             flingBehavior = PagerDefaults.flingBehavior(
                 state = pager,
                 pagerSnapDistance = PagerSnapDistance.atMost(1),
-                snapAnimationSpec = settle,
+                snapAnimationSpec = pageSpring,
                 snapPositionalThreshold = 0.5f,
             ),
             key = { RootTab.entries[it].route },
@@ -277,7 +287,7 @@ private fun FuturePage(title: String, context: String? = null) {
     BoxWithConstraints(Modifier.fillMaxSize().padding(top = chrome.top, bottom = chrome.bottom)
         .testTag("placeholder-viewport")) {
         val viewportHeight = maxHeight
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+        Column(Modifier.chromeScroll().fillMaxWidth().verticalScroll(rememberScrollState())
             .heightIn(min = viewportHeight).padding(Space.lg),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally) {

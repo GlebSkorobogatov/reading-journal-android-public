@@ -12,7 +12,7 @@
 
 **UI-02 — ACCEPTED / MERGED.** Владелец окончательно принял «Читаю сейчас» и компактный обзор «Статистика» 27 ноября 2026 г.: Samsung Galaxy A55, 14/14 PASS, замечаний нет. Принятая сборка `0.2.0-rev02`, Head `63fea51ff8f5f8e32ba3b1dfc1fca0165ccca57e`, SHA-256 APK `c2d2732c4eb81f6d47f63d595a95ddfb90a4333920b50dcb2d5d7f921572abb6`. [Отчёт](docs/acceptance/UI-02.md). [PR №7](https://github.com/GlebSkorobogatov/reading-journal-android-public/pull/7) объединён, main `56341fbcb97f932b7c53e7e6982b9934453fb19a`.
 
-**UI-02.1 — ожидает приёмки.** Плавающие островки, горизонтальное переключение трёх корней и ярлык из значка «Читаю сейчас», debug `0.2.1-floating`, versionCode 6. [Отчёт](docs/acceptance/UI-02.1.md). Полная библиотека (UI-03), аналитика (UI-09) и достижения (UI-12) остаются будущими этапами.
+**UI-02.1 — ожидает приёмки.** Плавающие островки следуют за прокруткой, три корня листаются spring-переходом, нижний островок 72×52, значок библиотеки — стопка книг, ярлык из значка «Читаю сейчас». Debug `0.2.1-motion`, versionCode 7. [Отчёт](docs/acceptance/UI-02.1.md). Полная библиотека (UI-03), аналитика (UI-09) и достижения (UI-12) остаются будущими этапами.
 
 ## Документация и границы
 
@@ -39,7 +39,7 @@ git diff --check
 python3 .github/scripts/verify_test_results.py app/build/outputs/androidTest-results/connected/debug --minimum 17
 ```
 
-Debug APK: `app/build/outputs/apk/debug/app-debug.apk`, applicationId `ru.gleb.readingjournal`, versionName **0.2.1-floating**, versionCode **6**. Принятая сборка UI-02 остаётся `0.2.0-rev02`, versionCode 5. В Windows использовать `gradlew.bat` и Python 3.12+. Debug-сборка не является публичным релизом или готовым рабочим дневником.
+Debug APK: `app/build/outputs/apk/debug/app-debug.apk`, applicationId `ru.gleb.readingjournal`, versionName **0.2.1-motion**, versionCode **7**. Принятая сборка UI-02 остаётся `0.2.0-rev02`, versionCode 5. В Windows использовать `gradlew.bat` и Python 3.12+. Debug-сборка не является публичным релизом или готовым рабочим дневником.
 
 ## CI и приёмка
 

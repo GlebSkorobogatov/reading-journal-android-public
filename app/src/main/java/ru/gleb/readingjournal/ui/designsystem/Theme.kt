@@ -95,14 +95,23 @@ object Metric {
     val touch = 48.dp; val icon = 24.dp; val compactIcon = 20.dp
     val navigation = 64.dp; val topBar = 56.dp; val timer = 56.dp
     val indicatorWidth = 24.dp; val indicatorHeight = 2.dp; val progress = 8.dp
+    /** One bottom-navigation sector. The whole rectangle is the press target. */
+    val navSectorWidth = 72.dp
+    val navSectorHeight = 52.dp
+    /** Horizontal inset inside the navigation capsule, on both ends. */
+    val navIslandInset = 12.dp
+    /** Consumed vertical scroll that moves the islands from fully shown to fully hidden. */
+    val islandHideDistance = 96.dp
     const val coverRatio = 2f / 3f
 }
 object Motion {
     const val fast = 150; const val normal = 200; const val transition = 250
-    /** Floating islands only. Screens, settings and predictive Back stay on [transition]. */
+    /**
+     * Upper bound for settling the islands after the finger and its fling let go,
+     * when the whole 0…1 distance is still left. The travel itself follows the scroll
+     * and does not use this duration. Screens, settings and predictive Back stay on [transition].
+     */
     const val island = 350
-    /** Horizontal settle between the three root screens. Not used by other transitions. */
-    const val page = 350
     // Compose animation APIs apply Android's animator duration scale, including zero.
 }
 @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)

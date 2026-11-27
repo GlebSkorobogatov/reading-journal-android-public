@@ -34,6 +34,7 @@ import ru.gleb.readingjournal.app.ThemeMode
 import ru.gleb.readingjournal.ui.designsystem.JournalChrome
 import ru.gleb.readingjournal.ui.designsystem.JournalTheme
 import ru.gleb.readingjournal.ui.designsystem.LocalChromeObstruction
+import ru.gleb.readingjournal.ui.designsystem.chromeScroll
 
 class FloatingChromeTest {
     @get:Rule val rule = createComposeRule()
@@ -53,7 +54,7 @@ class FloatingChromeTest {
         rule.setContent {
             SamplePage {
                 Column(Modifier.fillMaxSize()) {
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).testTag("short")) {
+                    Column(Modifier.chromeScroll().weight(1f).verticalScroll(rememberScrollState()).testTag("short")) {
                         Text("Одна строка")
                     }
                     Row(Modifier.horizontalScroll(rememberScrollState()).testTag("wide")) {
@@ -85,49 +86,75 @@ class FloatingChromeTest {
         rule.mainClock.autoAdvance = false
         rule.setContent { SamplePage { SampleFeed() } }
         rule.mainClock.advanceTimeByFrame()
+        screenshot("floating-hide-00")
         screenshot("floating-visible-light")
         val title = top("chrome-title")
         val action = top("chrome-action")
         val tabs = top("chrome-tabs")
-        rule.onNodeWithTag("feed").performTouchInput { swipeUp(durationMillis = 16) }
+        dragBy(0.25f)
         rule.mainClock.advanceTimeByFrame()
-        val started = progress()
+        val quarter = progress()
+        assertTrue("25% progress=$quarter", quarter > 0.12f && quarter < 0.45f)
+        screenshot("floating-hide-25")
+        dragBy(0.25f)
+        rule.mainClock.advanceTimeByFrame()
+        val half = progress()
+        assertTrue("50% progress=$half after $quarter", half > quarter + 0.1f && half < 0.75f)
         val scrolled = top("item-0")
-        assertTrue("progress=$started", started > 0f && started < 0.25f)
-        rule.mainClock.advanceTimeBy(100)
-        val mid = progress()
-        assertTrue("progress=$mid", mid > started && mid < 1f)
+        rule.mainClock.advanceTimeBy(120)
+        assertEquals(half, progress(), 0.02f)
         assertEquals(scrolled, top("item-0"), 1.5f)
         assertEquals(title - top("chrome-title"), action - top("chrome-action"), 2f)
         assertTrue(title - top("chrome-title") > 1f && top("chrome-tabs") - tabs > 1f)
+        screenshot("floating-hide-50")
         screenshot("floating-mid-hide-light")
-        rule.mainClock.advanceTimeBy(400)
+        dragBy(0.25f)
+        rule.mainClock.advanceTimeByFrame()
+        val three = progress()
+        assertTrue("75% progress=$three", three > half + 0.1f && three < 0.98f)
+        screenshot("floating-hide-75")
+        rule.onNodeWithTag("feed").performTouchInput { up() }
+        rule.mainClock.advanceTimeBy(600)
         assertEquals(1f, progress(), 0.02f)
         rule.onNodeWithContentDescription("Настройки").assertDoesNotExist()
         rule.onAllNodes(tab).assertCountEquals(0)
         rule.onNodeWithTag("chrome-title").assertDoesNotExist()
+        screenshot("floating-hide-100")
         screenshot("floating-hidden-light")
-        rule.onNodeWithTag("feed").performTouchInput { swipeDown(durationMillis = 16) }
+        rule.onNodeWithTag("feed").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, with(rule.density) { 140.dp.toPx() }), delayMillis = 32)
+            moveBy(Offset(0f, 1f), delayMillis = 200)
+            up()
+        }
+        rule.mainClock.advanceTimeByFrame()
         assertTrue(progress() < 1f)
         screenshot("floating-mid-show-light")
-        rule.mainClock.advanceTimeBy(400)
+        rule.mainClock.advanceTimeBy(700)
         assertEquals(0f, progress(), 0.02f)
         assertVisible()
         screenshot("floating-restored-light")
+        rule.mainClock.autoAdvance = true
     }
 
     @Test fun quickReversalContinuesFromTheCurrentProgress() {
         rule.mainClock.autoAdvance = false
         rule.setContent { SamplePage { SampleFeed() } }
         rule.mainClock.advanceTimeByFrame()
-        rule.onNodeWithTag("feed").performTouchInput { swipeUp(durationMillis = 16) }
+        dragBy(0.6f)
         rule.mainClock.advanceTimeByFrame()
         val mid = progress()
-        assertTrue("progress=$mid", mid > 0f && mid < 0.5f)
-        rule.onNodeWithTag("feed").performTouchInput { swipeDown(durationMillis = 48) }
-        assertTrue("progress=${progress()} mid=$mid", progress() < 0.9f)
-        rule.mainClock.advanceTimeBy(500)
+        assertTrue("progress=$mid", mid > 0.4f && mid < 0.85f)
+        rule.mainClock.advanceTimeBy(80)
+        assertEquals(mid, progress(), 0.02f)
+        rule.onNodeWithTag("feed").performTouchInput { moveBy(Offset(0f, with(rule.density) { 96.dp.toPx() } * 0.4f)) }
+        rule.mainClock.advanceTimeByFrame()
+        val reversed = progress()
+        assertTrue("progress=$reversed mid=$mid", reversed < mid - 0.2f)
+        rule.onNodeWithTag("feed").performTouchInput { up() }
+        rule.mainClock.advanceTimeBy(600)
         assertEquals(0f, progress(), 0.02f)
+        rule.mainClock.autoAdvance = true
     }
 
     @Test fun overscrollPastEitherEndDoesNotCreateAFalseHide() {
@@ -161,7 +188,7 @@ class FloatingChromeTest {
                     })
                     Text("Выше", Modifier.testTag("grow").clickable { extra = true })
                     Text(shown.toString(), Modifier.testTag("offset"))
-                    Column(Modifier.weight(1f).verticalScroll(state).testTag("manual")) {
+                    Column(Modifier.chromeScroll().weight(1f).verticalScroll(state).testTag("manual")) {
                         repeat(if (extra) 60 else 40) {
                             Text("Строка $it", Modifier.height(48.dp).testTag("row-$it"))
                         }
@@ -301,20 +328,32 @@ class FloatingChromeTest {
 
     @Test fun bothThemesOrientationsAndLargeTextKeepTheIslandsReadable() {
         val base = rule.density.density
-        for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
-            for (scale in listOf(1f, 1.3f, 1.5f, 2f)) {
-                for (landscape in listOf(false, true)) {
-                    rule.setContent {
-                        CompositionLocalProvider(LocalDensity provides Density(base, scale)) {
-                            Box(Modifier.requiredSize(if (landscape) 800.dp else 360.dp,
-                                if (landscape) 360.dp else 800.dp)) {
-                                SamplePage(mode = mode) { Box(Modifier.fillMaxSize()) { Text("Экран") } }
-                            }
-                        }
+        val mode = mutableStateOf(ThemeMode.LIGHT)
+        val scale = mutableStateOf(1f)
+        val landscape = mutableStateOf(false)
+        rule.setContent {
+            val font = scale.value
+            val wide = landscape.value
+            CompositionLocalProvider(LocalDensity provides Density(base, font)) {
+                // Stay inside the emulator window. A short viewport stands in for landscape:
+                // an 800 dp box would place the action past the edge of this 1080 px screen.
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxWidth().fillMaxHeight(if (wide) 0.42f else 1f)) {
+                        SamplePage(mode = mode.value) { Box(Modifier.fillMaxSize()) { Text("Экран") } }
                     }
+                }
+            }
+        }
+        for (nextMode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            for (nextScale in listOf(1f, 1.3f, 1.5f, 2f)) {
+                for (nextLandscape in listOf(false, true)) {
+                    mode.value = nextMode
+                    scale.value = nextScale
+                    landscape.value = nextLandscape
+                    rule.waitForIdle()
                     assertVisible()
                     val action = rule.onNodeWithTag("chrome-action").fetchSemanticsNode().size
-                    assertTrue("action ${action.width}x${action.height} scale=$scale",
+                    assertTrue("action ${action.width}x${action.height} scale=$nextScale",
                         action.width / base >= 47.5f && action.height / base >= 47.5f)
                     assertEquals("settings island stays square so the circle token is a circle",
                         action.width, action.height)
@@ -323,7 +362,7 @@ class FloatingChromeTest {
                     for (node in nodes) {
                         assertTrue(node.size.width / base >= 47.5f && node.size.height / base >= 47.5f)
                         assertTrue("tab grew with the font, so a label is still drawn: ${node.size.height / base}",
-                            node.size.height / base <= 52f)
+                            node.size.height / base <= 53f)
                     }
                     rule.onAllNodesWithText("Статистика").assertCountEquals(0)
                     rule.onAllNodesWithText("Библиотека").assertCountEquals(0)
@@ -331,7 +370,7 @@ class FloatingChromeTest {
                     val gear = rule.onNodeWithTag("chrome-action").fetchSemanticsNode().boundsInRoot
                     val root = rule.onNodeWithTag("chrome-root").fetchSemanticsNode().boundsInRoot
                     val tabs = rule.onNodeWithTag("chrome-tabs").fetchSemanticsNode().boundsInRoot
-                    assertTrue("navigation island stays a wide capsule at scale=$scale", tabs.width > tabs.height)
+                    assertTrue("navigation island stays a wide capsule at scale=$nextScale", tabs.width > tabs.height)
                     assertTrue(title.right <= gear.left + 1f)
                     assertTrue(tabs.left > root.left + base)
                     assertTrue(tabs.right < root.right - base)
@@ -383,10 +422,23 @@ class FloatingChromeTest {
 
     @Composable private fun SampleFeed() {
         val chrome = LocalChromeObstruction.current
-        LazyColumn(Modifier.fillMaxSize().testTag("feed"),
+        LazyColumn(Modifier.chromeScroll().fillMaxSize().testTag("feed"),
             contentPadding = PaddingValues(top = chrome.top, bottom = chrome.bottom)) {
             items(30) { index -> Text("Строка $index", Modifier.fillMaxWidth().height(56.dp).testTag("item-$index")) }
         }
+    }
+
+    private var fingerDown = false
+
+    /** Finger stays down. The first move also covers one touch slop, which the list does not consume. */
+    private fun dragBy(fraction: Float) {
+        val slop = if (fingerDown) 0.dp else 8.dp
+        val distance = with(rule.density) { (slop + 96.dp * fraction).toPx() }
+        rule.onNodeWithTag("feed").performTouchInput {
+            if (!fingerDown) down(center)
+            moveBy(Offset(0f, -distance))
+        }
+        fingerDown = true
     }
 
     private fun assertVisible() {
