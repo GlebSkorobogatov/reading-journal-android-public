@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.SystemClock
+import android.util.Log
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -66,8 +67,8 @@ class OverviewEvidenceTest {
                         capture("$prefix-statistics", mode)
                         rule.onNodeWithTag("overview-metrics").performScrollTo().assertIsDisplayed()
                         for (metric in listOf("pages", "cycles", "streak")) {
-                            assertTextFits("overview-$metric-value")
-                            assertTextFits("overview-$metric-label")
+                            assertTextFits("overview-$metric-value", mode)
+                            assertTextFits("overview-$metric-label", mode)
                         }
                         capture("$prefix-metrics", mode)
                         rule.onNodeWithTag("period-NEXT").performScrollTo().assertIsNotEnabled()
@@ -120,12 +121,37 @@ class OverviewEvidenceTest {
         capture("system-library-stub", ThemeMode.SYSTEM)
     }
 
-    private fun assertTextFits(tag: String) {
+    private fun assertTextFits(tag: String, mode: ThemeMode) {
+        val node = rule.onNodeWithTag(tag, useUnmergedTree = true)
         val layouts = mutableListOf<TextLayoutResult>()
-        rule.onNodeWithTag(tag, useUnmergedTree = true)
-            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-        assertTrue("Text layout present for $tag", layouts.isNotEmpty())
-        assertTrue("No visual overflow in $tag", layouts.none { it.hasVisualOverflow })
+        node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val config = rule.activity.resources.configuration
+        val root = rule.onRoot().fetchSemanticsNode().size
+        val card = rule.onNodeWithTag("overview-metrics").fetchSemanticsNode().size
+        val cells = listOf("pages", "cycles", "streak").map { key ->
+            rule.onNodeWithTag("overview-$key", useUnmergedTree = true).fetchSemanticsNode().size
+        }
+        val text = node.fetchSemanticsNode().size
+        val orientation = if (config.orientation == Configuration.ORIENTATION_LANDSCAPE) "landscape" else "portrait"
+        val context = "API=${Build.VERSION.SDK_INT} fontScale=${config.fontScale} orientation=$orientation " +
+            "theme=$mode screenDp=${config.screenWidthDp}x${config.screenHeightDp} rootPx=$root " +
+            "densityDpi=${config.densityDpi} cardPx=$card cellsPx=$cells tag=$tag nodePx=$text"
+        val measurement = layouts.joinToString { layout ->
+            val input = layout.layoutInput
+            val lines = (0 until layout.lineCount).joinToString { line ->
+                "(${layout.getLineLeft(line)},${layout.getLineTop(line)})-" +
+                    "(${layout.getLineRight(line)},${layout.getLineBottom(line)})"
+            }
+            "text=«${input.text.text}» fontSize=${input.style.fontSize} constraints=${input.constraints} " +
+                "layoutPx=${layout.size} lines=${layout.lineCount} lineBounds=[$lines] " +
+                "maxLines=${input.maxLines} softWrap=${input.softWrap} overflow=${input.overflow} " +
+                "didOverflowWidth=${layout.didOverflowWidth} didOverflowHeight=${layout.didOverflowHeight} " +
+                "hasVisualOverflow=${layout.hasVisualOverflow}"
+        }
+        val diagnostic = "$context $measurement"
+        Log.i("OverviewMetricLayout", diagnostic)
+        assertTrue("Text layout present for $tag: $diagnostic", layouts.isNotEmpty())
+        assertTrue("No visual overflow in $tag: $diagnostic", layouts.none { it.hasVisualOverflow })
     }
 
     private fun assertViewport(tag: String) {
