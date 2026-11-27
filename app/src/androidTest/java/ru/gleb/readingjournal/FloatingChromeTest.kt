@@ -93,7 +93,7 @@ class FloatingChromeTest {
         rule.mainClock.advanceTimeByFrame()
         val started = progress()
         val scrolled = top("item-0")
-        assertTrue("progress=$started", started > 0f && started < 0.5f)
+        assertTrue("progress=$started", started > 0f && started < 0.25f)
         rule.mainClock.advanceTimeBy(100)
         val mid = progress()
         assertTrue("progress=$mid", mid > started && mid < 1f)
@@ -281,7 +281,7 @@ class FloatingChromeTest {
         rule.onNodeWithTag("go-stats").performClick()
         rule.waitForIdle()
         assertEquals(0f, progress(), 0.02f)
-        rule.onNode(tab and hasText("Статистика")).assertIsSelected()
+        rule.onNode(tab and hasContentDescription("Статистика")).assertIsSelected()
         rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
         rule.onAllNodes(tab).assertCountEquals(3)
         rule.onNodeWithTag("feed").performTouchInput { swipeUp() }
@@ -296,7 +296,7 @@ class FloatingChromeTest {
         rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
         rule.onAllNodes(tab).assertCountEquals(3)
         assertEquals(0f, progress(), 0.02f)
-        rule.onNode(tab and hasText("Статистика")).assertIsSelected()
+        rule.onNode(tab and hasContentDescription("Статистика")).assertIsSelected()
     }
 
     @Test fun bothThemesOrientationsAndLargeTextKeepTheIslandsReadable() {
@@ -322,7 +322,11 @@ class FloatingChromeTest {
                     assertEquals(3, nodes.size)
                     for (node in nodes) {
                         assertTrue(node.size.width / base >= 47.5f && node.size.height / base >= 47.5f)
+                        assertTrue("tab grew with the font, so a label is still drawn: ${node.size.height / base}",
+                            node.size.height / base <= 52f)
                     }
+                    rule.onAllNodesWithText("Статистика").assertCountEquals(0)
+                    rule.onAllNodesWithText("Библиотека").assertCountEquals(0)
                     val title = rule.onNodeWithTag("chrome-title").fetchSemanticsNode().boundsInRoot
                     val gear = rule.onNodeWithTag("chrome-action").fetchSemanticsNode().boundsInRoot
                     val root = rule.onNodeWithTag("chrome-root").fetchSemanticsNode().boundsInRoot
@@ -332,9 +336,9 @@ class FloatingChromeTest {
                     assertTrue(tabs.left > root.left + base)
                     assertTrue(tabs.right < root.right - base)
                     assertTrue(tabs.bottom < root.bottom - base)
-                    rule.onNode(tab and hasText("Читаю сейчас")).assertIsDisplayed()
-                    rule.onNode(tab and hasText("Статистика")).assertIsDisplayed()
-                    rule.onNode(tab and hasText("Библиотека")).assertIsDisplayed()
+                    rule.onNode(tab and hasContentDescription("Читаю сейчас")).assertIsDisplayed()
+                    rule.onNode(tab and hasContentDescription("Статистика")).assertIsDisplayed()
+                    rule.onNode(tab and hasContentDescription("Библиотека")).assertIsDisplayed()
                 }
             }
         }
@@ -358,10 +362,22 @@ class FloatingChromeTest {
         screenshot("floating-restored-dark")
     }
 
+    @Test fun indicatorFollowsThePagerPositionAndNamesStayAccessible() {
+        rule.setContent { SamplePage(selection = 1.5f) { Box(Modifier.fillMaxSize()) } }
+        val tabs = rule.onAllNodes(tab).fetchSemanticsNodes().sortedBy { it.boundsInRoot.left }
+        val expected = (tabs[1].boundsInRoot.center.x + tabs[2].boundsInRoot.center.x) / 2f
+        assertEquals(expected, bounds("tab-indicator").center.x, 1.5f)
+        rule.onNode(tab and hasContentDescription("Библиотека")).assertIsSelected()
+        labels.forEach { label ->
+            rule.onNode(tab and hasContentDescription(label)).assertIsDisplayed()
+        }
+    }
+
     @Composable private fun SamplePage(mode: ThemeMode = ThemeMode.LIGHT, autoHide: Boolean = true,
-        content: @Composable () -> Unit) {
+        selection: Float? = null, content: @Composable () -> Unit) {
         JournalTheme(mode) {
-            JournalChrome("Читаю сейчас", "Настройки", {}, labels, "Читаю сейчас", {}, autoHide, content)
+            JournalChrome("Читаю сейчас", "Настройки", {}, labels, "Читаю сейчас", {}, autoHide,
+                selection = selection, content = content)
         }
     }
 
@@ -377,7 +393,7 @@ class FloatingChromeTest {
         rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
         rule.onNodeWithTag("chrome-title").assertIsDisplayed()
         rule.onAllNodes(tab).assertCountEquals(3)
-        rule.onNode(tab and hasText("Читаю сейчас")).assertIsSelected()
+        rule.onNode(tab and hasContentDescription("Читаю сейчас")).assertIsSelected()
         assertEquals(0f, progress(), 0.02f)
     }
 

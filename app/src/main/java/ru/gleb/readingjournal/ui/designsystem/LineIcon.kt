@@ -8,7 +8,9 @@ import androidx.compose.ui.res.painterResource
 import ru.gleb.readingjournal.R
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -38,13 +40,12 @@ fun LineIcon(name: String) {
                     moveTo(13f, 16f); lineTo(13f, 8f)
                     moveTo(18f, 16f); lineTo(18f, 5f)
                 }, color, style = outline)
-                "Библиотека" -> {
-                    // Upright book spines and a leaning volume: a collection, not a single page.
-                    listOf(4f, 8f, 12f).forEach { x ->
-                        drawLine(color, Offset(x, if (x == 12f) 3f else 5f), Offset(x, 20f),
-                            strokeWidth = 1.5f, cap = StrokeCap.Round)
-                    }
-                    drawLine(color, Offset(16f, 4f), Offset(20f, 20f),
+                "Библиотека" -> libraryBooks().forEach { book ->
+                    // A book lying flat. The outline is the cover; the line near the bottom
+                    // is the page block facing the viewer. There is no spine.
+                    drawRoundRect(color, Offset(book.left, book.top), Size(book.width, book.height),
+                        CornerRadius(1.15f, 1.15f), style = outline)
+                    drawLine(color, Offset(book.left + 2.1f, book.pageY), Offset(book.right - 2.1f, book.pageY),
                         strokeWidth = 1.5f, cap = StrokeCap.Round)
                 }
                 "Вперёд", "Предыдущий период", "Следующий период" -> {
@@ -81,3 +82,17 @@ fun LineIcon(name: String) {
         }
     }
 }
+
+/** Three books stacked one above another, each wider than it is tall, with different horizontal offsets. */
+internal data class LibraryBook(val left: Float, val top: Float, val right: Float, val bottom: Float) {
+    val width: Float get() = right - left
+    val height: Float get() = bottom - top
+    /** Page block, in the lower part of the cover, not a spine. */
+    val pageY: Float get() = bottom - 2.15f
+}
+
+internal fun libraryBooks(): List<LibraryBook> = listOf(
+    LibraryBook(6.4f, 0.9f, 20.6f, 6.5f),
+    LibraryBook(3.2f, 9.1f, 17.6f, 14.7f),
+    LibraryBook(4.8f, 17.3f, 19.6f, 22.9f),
+)

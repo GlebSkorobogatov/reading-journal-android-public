@@ -24,8 +24,10 @@ app/src/androidTest/java/ru/gleb/readingjournal/FloatingChromeTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/LifecycleLayoutTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/OverviewEvidenceTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/OverviewTest.kt
+app/src/androidTest/java/ru/gleb/readingjournal/PagerNestingTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/PreviewRenderTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/RenderingTest.kt
+app/src/androidTest/java/ru/gleb/readingjournal/RootPagerTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/ShellPolishTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/ShellTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/SystemThemeTest.kt
@@ -51,6 +53,7 @@ app/src/main/res/drawable-nodpi/demo_cover_atlas.png
 app/src/main/res/drawable-nodpi/demo_cover_garden.png
 app/src/main/res/drawable/ic_closed_book.xml
 app/src/main/res/drawable/ic_launcher_foreground.xml
+app/src/main/res/drawable/ic_launcher_monochrome.xml
 app/src/main/res/font/lora.ttf
 app/src/main/res/font/manrope.ttf
 app/src/main/res/mipmap-anydpi/ic_launcher.xml
@@ -61,6 +64,7 @@ app/src/main/res/xml/data_extraction_rules.xml
 app/src/test/java/ru/gleb/readingjournal/ChromeAnimationTest.kt
 app/src/test/java/ru/gleb/readingjournal/ChromeMotionTest.kt
 app/src/test/java/ru/gleb/readingjournal/IslandShapeTest.kt
+app/src/test/java/ru/gleb/readingjournal/LibraryAndLauncherTest.kt
 app/src/test/java/ru/gleb/readingjournal/OverviewPagesFormatTest.kt
 app/src/test/java/ru/gleb/readingjournal/ReadingDemoTest.kt
 app/src/test/java/ru/gleb/readingjournal/ShellStateTest.kt
@@ -96,6 +100,7 @@ docs/decisions/adr/ADR-09-local-privacy.md
 docs/decisions/adr/ADR-10-ui01-toolchain-and-shell.md
 docs/decisions/adr/ADR-11-ci-levels.md
 docs/decisions/adr/ADR-12-rev02-navigation.md
+docs/decisions/adr/ADR-13-floating-pager.md
 docs/decisions/adr/README.md
 docs/decisions/Дорожная_карта_Читательский_дневник_UI_first_v2.md
 docs/decisions/Читательский_дневник_спецификация_v2.04.md

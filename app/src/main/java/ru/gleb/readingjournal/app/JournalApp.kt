@@ -8,12 +8,16 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.activity.SystemBarStyle
 import androidx.activity.BackEventCompat
 import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerSnapDistance
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.verticalScroll
@@ -27,7 +31,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -40,6 +43,7 @@ import ru.gleb.readingjournal.demo.DemoScenario
 import ru.gleb.readingjournal.demo.ReadingDemoUi
 import ru.gleb.readingjournal.demo.ReadingDemoViewModel
 import ru.gleb.readingjournal.ui.overview.*
+import kotlinx.coroutines.launch
 import ru.gleb.readingjournal.ui.designsystem.*
 
 private enum class RootTab(val route: String, val title: String) {
@@ -49,7 +53,7 @@ private enum class RootTab(val route: String, val title: String) {
 }
 
 private val tabTitles = RootTab.entries.map { it.title }
-private val tabRoutes = RootTab.entries.map { it.route }
+private const val RootRoute = "Root"
 private const val BookRoute = "Book/{bookId}"
 private const val RecordRoute = "RecordReading/{bookId}/{cycleId}"
 
@@ -78,15 +82,8 @@ private fun JournalShell(
     onDemoAction: (DemoAction) -> Unit,
 ) {
     val nav = rememberNavController()
-    val entry by nav.currentBackStackEntryAsState()
-    val start = RootTab.READING.route
-    val route = entry?.destination?.route ?: start
-    // Preserve a secondary root's scroll state when Back returns to the start tab.
-    BackHandler(route in tabRoutes && route != start) {
-        nav.popBackStack(start, inclusive = false, saveState = true)
-    }
     Surface(Modifier.fillMaxSize().testTag("theme-${LocalJournalDark.current}"), color = LocalJournalColors.current.background) {
-        NavHost(nav, start, Modifier.fillMaxSize()
+        NavHost(nav, RootRoute, Modifier.fillMaxSize()
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).clipToBounds(),
             enterTransition = {
                 if (targetState.destination.route == "Настройки") slideInHorizontally(tween(Motion.transition)) { it }
@@ -113,35 +110,7 @@ private fun JournalShell(
                     if (edge == BackEventCompat.EDGE_LEFT) it else -it
                 } else fadeOut(tween(Motion.transition))
             }) {
-            RootTab.entries.forEach { tab -> composable(tab.route) {
-                ShellPage(tab.title, onAction = { nav.navigate("Настройки") { launchSingleTop = true } },
-                    onTab = { label ->
-                        val selected = RootTab.entries.first { it.title == label }
-                        if (selected != tab) nav.navigate(selected.route) {
-                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }) {
-                    when (tab) {
-                        RootTab.READING -> CurrentlyReading(
-                            overview.value.reading, rememberLazyListState(),
-                            onOpenBook = { bookId -> nav.navigate(bookPath(bookId)) { launchSingleTop = true } },
-                            onRecord = { bookId, cycleId ->
-                                nav.navigate(recordPath(bookId, cycleId)) { launchSingleTop = true }
-                            },
-                            onTogglePin = { onDemoAction(DemoAction.TogglePin(it)) },
-                            onMovePin = { bookId, direction -> onDemoAction(DemoAction.MovePin(bookId, direction)) }
-                        )
-                        RootTab.STATISTICS -> StatisticsOverview(
-                            overview.value.statistics, rememberScrollState(),
-                            onStepPeriod = { onDemoAction(DemoAction.StepPeriod(it)) },
-                            onOpen = { nav.navigate(it.route) { launchSingleTop = true } }
-                        )
-                        RootTab.LIBRARY -> FuturePage("Библиотека · UI-03")
-                    }
-                }
-            } }
+            composable(RootRoute) { RootPager(nav, overview, onDemoAction) }
             StatisticsDestination.entries.forEach { destination -> composable(destination.route) {
                 ShellPage(destination.title, onAction = { nav.popBackStack() }) {
                     val context = when (destination) {
@@ -219,15 +188,82 @@ private fun JournalShell(
 }
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.isSettingsReturn() =
-    initialState.destination.route == "Настройки" && targetState.destination.route in tabRoutes
+    initialState.destination.route == "Настройки" && targetState.destination.route == RootRoute
+
+/**
+ * One chrome and one pager. [PagerState] is the only selected-tab state.
+ * Scroll positions live beside the pager, so leaving a page or opening a child does not drop them.
+ * HorizontalPager performs the gesture; a child that can scroll horizontally still receives it first.
+ */
+@Composable
+private fun RootPager(
+    nav: androidx.navigation.NavHostController,
+    overview: State<ReadingDemoUi>,
+    onDemoAction: (DemoAction) -> Unit,
+) {
+    val pager = rememberPagerState { RootTab.entries.size }
+    val scope = rememberCoroutineScope()
+    val readingScroll = rememberLazyListState()
+    val statisticsScroll = rememberScrollState()
+    val settle = remember { tween<Float>(durationMillis = Motion.page, easing = IslandEasing) }
+    val awayFromStart by remember { derivedStateOf { pager.currentPage != 0 || pager.settledPage != 0 } }
+    val index by remember { derivedStateOf { pager.currentPage.coerceIn(0, RootTab.entries.lastIndex) } }
+    val settled by remember { derivedStateOf { pager.settledPage.coerceIn(0, RootTab.entries.lastIndex) } }
+    val position by remember { derivedStateOf { pager.currentPage + pager.currentPageOffsetFraction } }
+    BackHandler(awayFromStart) {
+        scope.launch { pager.animateScrollToPage(0, animationSpec = settle) }
+    }
+    ShellPage(
+        title = RootTab.entries[index].title,
+        onAction = { nav.navigate("Настройки") { launchSingleTop = true } },
+        onTab = { label ->
+            val target = RootTab.entries.indexOfFirst { it.title == label }
+            if (target >= 0) scope.launch { pager.animateScrollToPage(target, animationSpec = settle) }
+        },
+        selection = position,
+        settledTab = RootTab.entries[settled].title,
+    ) {
+        HorizontalPager(
+            state = pager,
+            modifier = Modifier.fillMaxSize().testTag("root-pager"),
+            beyondViewportPageCount = 1,
+            flingBehavior = PagerDefaults.flingBehavior(
+                state = pager,
+                pagerSnapDistance = PagerSnapDistance.atMost(1),
+                snapAnimationSpec = settle,
+                snapPositionalThreshold = 0.5f,
+            ),
+            key = { RootTab.entries[it].route },
+        ) { page ->
+            when (RootTab.entries[page]) {
+                RootTab.READING -> CurrentlyReading(
+                    overview.value.reading, readingScroll,
+                    onOpenBook = { bookId -> nav.navigate(bookPath(bookId)) { launchSingleTop = true } },
+                    onRecord = { bookId, cycleId ->
+                        nav.navigate(recordPath(bookId, cycleId)) { launchSingleTop = true }
+                    },
+                    onTogglePin = { onDemoAction(DemoAction.TogglePin(it)) },
+                    onMovePin = { bookId, direction -> onDemoAction(DemoAction.MovePin(bookId, direction)) },
+                )
+                RootTab.STATISTICS -> StatisticsOverview(
+                    overview.value.statistics, statisticsScroll,
+                    onStepPeriod = { onDemoAction(DemoAction.StepPeriod(it)) },
+                    onOpen = { nav.navigate(it.route) { launchSingleTop = true } },
+                )
+                RootTab.LIBRARY -> FuturePage("Библиотека · UI-03")
+            }
+        }
+    }
+}
 
 /** Destination-owned chrome keeps outgoing Settings full-size throughout a pop. */
 @Composable
 private fun ShellPage(title: String, onAction: () -> Unit, onTab: ((String) -> Unit)? = null,
-    content: @Composable () -> Unit) {
+    selection: Float? = null, settledTab: String? = null, content: @Composable () -> Unit) {
     JournalChrome(title, actionLabel = if (onTab != null) "Настройки" else "Назад", onAction = onAction,
-        tabs = if (onTab != null) tabTitles else null, selectedTab = title,
-        onTab = { onTab?.invoke(it) }, autoHide = !systemTouchExplorationEnabled(), content = content)
+        tabs = if (onTab != null) tabTitles else null, selectedTab = title, onTab = { onTab?.invoke(it) },
+        autoHide = !systemTouchExplorationEnabled(), selection = selection, settledTab = settledTab,
+        content = content)
 }
 
 

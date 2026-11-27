@@ -45,9 +45,9 @@ class FloatingChromeShellTest {
         rule.onAllNodes(tab).assertCountEquals(0)
         rule.onNodeWithContentDescription("Назад").performClick()
         rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
-        rule.onNode(tab and hasText("Статистика")).performClick()
+        rule.onNode(tab and hasContentDescription("Статистика")).performClick()
         rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
-        rule.onNode(tab and hasText("Статистика")).assertIsSelected()
+        rule.onNode(tab and hasContentDescription("Статистика")).assertIsSelected()
         rule.onAllNodes(tab).assertCountEquals(3)
     }
 
@@ -86,7 +86,7 @@ class FloatingChromeShellTest {
         }
         val root = rule.onNodeWithTag("chrome-root").fetchSemanticsNode().boundsInRoot
         val feed = rule.onNodeWithTag("reading-feed").fetchSemanticsNode().boundsInRoot
-        val tabs = rule.onNode(tab and hasText("Библиотека")).fetchSemanticsNode().boundsInRoot
+        val tabs = rule.onNode(tab and hasContentDescription("Библиотека")).fetchSemanticsNode().boundsInRoot
         assertEquals(root.top, feed.top, 1f)
         assertEquals(root.bottom, feed.bottom, 1f)
         assertTrue(feed.bottom > tabs.top + 1f)
@@ -121,11 +121,11 @@ class FloatingChromeShellTest {
         rule.onNodeWithContentDescription("Назад").performClick()
         rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
         rule.onAllNodes(tab).assertCountEquals(3)
-        rule.onNode(tab and hasText("Читаю сейчас")).assertIsSelected()
+        rule.onNode(tab and hasContentDescription("Читаю сейчас")).assertIsSelected()
     }
 
     @Test fun predictiveSettingsBackDoesNotScale() {
-        rule.onNode(hasText("Библиотека") and hasClickAction()).performClick()
+        rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).performClick()
         rule.onNodeWithContentDescription("Настройки").performClick()
         rule.onNodeWithText("Тема").assertIsDisplayed()
         val initial = settingsBounds()
@@ -141,7 +141,7 @@ class FloatingChromeShellTest {
         assertTrue(during.left > initial.left + 1f)
         rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
         rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
-        rule.onNode(hasText("Библиотека") and hasClickAction()).assertIsSelected()
+        rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).assertIsSelected()
     }
 
     @Test fun themesAndBothOrientationsKeepTheThreeTabs() {
@@ -158,7 +158,7 @@ class FloatingChromeShellTest {
             rule.waitUntil(30_000) { rule.activity.resources.configuration.orientation == expected }
             rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
             rule.onAllNodes(tab).assertCountEquals(3)
-            rule.onNode(tab and hasText("Читаю сейчас")).assertIsSelected()
+            rule.onNode(tab and hasContentDescription("Читаю сейчас")).assertIsSelected()
         }
     }
 

@@ -231,7 +231,7 @@ class OverviewEvidenceTest {
         }
     }
 
-    private fun select(label: String) = rule.onNode(tab and hasText(label)).performClick()
+    private fun select(label: String) = rule.onNode(tab and hasContentDescription(label)).performClick()
     private fun back() = rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
 
     private fun orientation(landscape: Boolean) = rule.runOnUiThread {

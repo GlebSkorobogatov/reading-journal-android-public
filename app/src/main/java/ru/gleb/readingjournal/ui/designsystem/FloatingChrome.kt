@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -49,7 +48,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -68,7 +66,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
@@ -119,6 +116,10 @@ internal fun JournalChrome(
     selectedTab: String? = null,
     onTab: (String) -> Unit = {},
     autoHide: Boolean = true,
+    /** Continuous page position. The terracotta line follows it; semantics use the nearest page. */
+    selection: Float? = null,
+    /** When a root transition settles on another page, bring the islands back. */
+    settledTab: String? = null,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -126,9 +127,10 @@ internal fun JournalChrome(
     val model = remember(slop) { ChromeModel(slop) }
     val progress = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
-    val driver = remember(model) { ChromeDriver(model, progress, scope, Motion.transition) }
+    val driver = remember(model) { ChromeDriver(model, progress, scope, Motion.island) }
     driver.autoHide = autoHide
     LaunchedEffect(autoHide) { if (!autoHide) driver.snapVisible() }
+    LaunchedEffect(settledTab) { if (settledTab != null) driver.show() }
     val connection = remember(driver) { chromeConnection(driver) }
     val statusPx = WindowInsets.statusBars.getTop(density)
     val navPx = WindowInsets.navigationBars.getBottom(density)
@@ -145,7 +147,7 @@ internal fun JournalChrome(
     val bottomPx = navPx + bandPx
     val topTravel = -((statusPx + titleBandPx) * progress.value).roundToInt()
     val bottomTravel = ((navPx + bandPx) * progress.value).roundToInt()
-    val alpha = 1f - progress.value
+    val alpha = islandAlpha(progress.value)
     Box(Modifier.fillMaxSize().testTag("chrome-root")) {
         Box(
             Modifier.fillMaxSize()
@@ -208,33 +210,36 @@ internal fun JournalChrome(
                 .padding(start = Space.lg, end = Space.lg, top = Space.sm, bottom = Space.lg)
                 .islandTravel(bottomTravel, alpha, hidden),
                 contentAlignment = Alignment.Center) {
-                BoxWithConstraints {
-                    val share = maxWidth / tabs.size
-                    Box(Modifier.wrapContentWidth().testTag("chrome-tabs")) {
+                val fallback = tabs.indexOf(selectedTab).coerceAtLeast(0)
+                val position = (selection ?: fallback.toFloat()).coerceIn(0f, (tabs.lastIndex).toFloat())
+                val active = position.roundToInt().coerceIn(0, tabs.lastIndex)
+                Box(Modifier.wrapContentWidth().testTag("chrome-tabs")) {
                     Surface(shape = JournalShape.islandCapsule, color = colors.surface,
                         border = BorderStroke(Metric.border, colors.outline), shadowElevation = Metric.shadow) {
-                        Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.Center) {
-                            tabs.forEach { label ->
-                                val selected = label == selectedTab
-                                Column(Modifier.then(if (share >= Metric.touch)
-                                    Modifier.widthIn(min = Metric.touch, max = share) else Modifier.weight(1f))
-                                    .heightIn(min = Metric.touch)
-                                    .selectable(selected = selected, enabled = !hidden, role = Role.Tab,
-                                        onClick = { if (!hidden) onTab(label) })
-                                    .padding(horizontal = Space.sm, vertical = Space.xs),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(Space.xs, Alignment.CenterVertically)) {
-                                    Box(Modifier.size(Metric.indicatorWidth, Metric.indicatorHeight)
-                                        .background(if (selected) colors.accent else Color.Transparent))
-                                    CompositionLocalProvider(LocalContentColor provides
-                                        if (selected) colors.accent else colors.textSecondary) {
-                                        LineIcon(label)
-                                        Text(label, style = JournalType.navigation, textAlign = TextAlign.Center)
+                        Box(Modifier.padding(horizontal = Space.sm, vertical = Space.xs)) {
+                            // Drawn under the row so the line does not steal the touch target.
+                            Box(Modifier.align(Alignment.TopStart)
+                                .offset(x = Metric.touch * position + (Metric.touch - Metric.indicatorWidth) / 2)
+                                .padding(top = Space.xs)
+                                .size(Metric.indicatorWidth, Metric.indicatorHeight)
+                                .background(colors.accent)
+                                .testTag("tab-indicator"))
+                            Row(Modifier.selectableGroup()) {
+                                tabs.forEachIndexed { index, label ->
+                                    val selected = index == active
+                                    Box(Modifier.size(Metric.touch)
+                                        .selectable(selected = selected, enabled = !hidden, role = Role.Tab,
+                                            onClick = { if (!hidden) onTab(label) })
+                                        .semantics { contentDescription = label },
+                                        contentAlignment = Alignment.Center) {
+                                        CompositionLocalProvider(LocalContentColor provides
+                                            if (selected) colors.accent else colors.textSecondary) {
+                                            LineIcon(label)
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
                     }
                 }
             }
@@ -296,6 +301,10 @@ internal class ChromeDriver(
         model.reset()
         job?.cancel()
         job = scope.launch { progress.snapTo(0f) }
+    }
+
+    fun show() {
+        model.forceVisible()?.let(::animate)
     }
 
     private fun animate(target: ChromeTarget) {

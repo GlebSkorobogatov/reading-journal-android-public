@@ -17,7 +17,7 @@ class LifecycleLayoutTest {
         val originalScale = rule.activity.resources.configuration.fontScale
         val originalOrientation = rule.activity.resources.configuration.orientation
         try {
-            rule.onNode(hasText("Библиотека") and hasClickAction()).performClick()
+            rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).performClick()
             rule.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
             rule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
             rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
@@ -33,7 +33,7 @@ class LifecycleLayoutTest {
             rule.onNodeWithText("Закрыть").assertIsDisplayed().performClick()
             rule.onNodeWithContentDescription("Назад").performClick()
             rule.onNodeWithContentDescription("Назад").performClick()
-            rule.onNode(hasText("Библиотека") and hasClickAction()).assertIsSelected()
+            rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).assertIsSelected()
         } finally {
             command("settings put system font_scale $originalScale")
             rule.runOnUiThread { rule.activity.requestedOrientation = if (originalOrientation == Configuration.ORIENTATION_LANDSCAPE)

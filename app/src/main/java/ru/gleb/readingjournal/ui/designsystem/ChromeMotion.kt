@@ -2,9 +2,29 @@ package ru.gleb.readingjournal.ui.designsystem
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
 import kotlin.math.abs
+
+/**
+ * Symmetric ease-in-out. Both control points sit on the 0 and 1 lines,
+ * so the curve starts and ends at rest and never overshoots.
+ */
+internal val IslandEasing: Easing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
+
+/**
+ * The island stays opaque while it is still mostly on screen and only fades
+ * as it leaves. The fade is a smoothstep, so it has no hard edge of its own.
+ * One function of progress keeps the fade and the return on the same path.
+ */
+internal fun islandAlpha(progress: Float): Float {
+    val start = 0.7f
+    if (progress <= start) return 1f
+    val t = ((progress - start) / (1f - start)).coerceIn(0f, 1f)
+    val smooth = t * t * (3f - 2f * t)
+    return 1f - smooth
+}
 
 internal enum class ChromeTarget { VISIBLE, HIDDEN }
 
@@ -81,7 +101,7 @@ internal class ChromeModel(val slop: Float) {
 }
 
 internal suspend fun Animatable<Float, AnimationVector1D>.animateChrome(target: Float, durationMillis: Int) {
-    animateTo(target, tween(durationMillis = durationMillis, easing = FastOutSlowInEasing))
+    animateTo(target, tween(durationMillis = durationMillis, easing = IslandEasing))
 }
 
 private const val SAMPLE_EPSILON = 0.5f

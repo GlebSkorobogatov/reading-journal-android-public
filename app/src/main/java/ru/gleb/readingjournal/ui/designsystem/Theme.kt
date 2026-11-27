@@ -99,6 +99,10 @@ object Metric {
 }
 object Motion {
     const val fast = 150; const val normal = 200; const val transition = 250
+    /** Floating islands only. Screens, settings and predictive Back stay on [transition]. */
+    const val island = 350
+    /** Horizontal settle between the three root screens. Not used by other transitions. */
+    const val page = 350
     // Compose animation APIs apply Android's animator duration scale, including zero.
 }
 @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
