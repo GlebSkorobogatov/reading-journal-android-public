@@ -69,7 +69,7 @@ class OverviewEvidenceTest {
                         rule.onNodeWithTag("xp-card").performScrollTo()
                         assertViewport("statistics-feed")
                         capture("$prefix-statistics", mode)
-                        assertMetricsFit(mode, listOf("128 540", "142", "248"))
+                        assertMetricsFit(mode, listOf("128,5K", "142", "248"), "128 540 страниц")
                         capture("$prefix-metrics", mode)
                         rule.onNodeWithTag("period-NEXT").performScrollTo().assertIsNotEnabled()
                         rule.onNodeWithTag("overview-ReadingRecords").performScrollTo()
@@ -94,7 +94,7 @@ class OverviewEvidenceTest {
         rule.onNodeWithTag("reading-empty").assertIsDisplayed()
         capture("system-empty", ThemeMode.SYSTEM)
         select("Статистика")
-        assertMetricsFit(ThemeMode.SYSTEM, listOf("0", "0", "0"))
+        assertMetricsFit(ThemeMode.SYSTEM, listOf("0", "0", "0"), "0 страниц")
         select("Читаю сейчас")
         configureDemo(DemoScenario.SINGLE)
         rule.onNodeWithTag("book-coast").assertIsDisplayed()
@@ -114,9 +114,10 @@ class OverviewEvidenceTest {
         capture("system-many-last-book", ThemeMode.SYSTEM)
         configureDemo(DemoScenario.MULTIPLE, allTime = true)
         select("Статистика")
-        assertMetricsFit(ThemeMode.SYSTEM, listOf("1 795", "7", "3"))
+        assertMetricsFit(ThemeMode.SYSTEM, listOf("1,7K", "7", "3"), "1 795 страниц")
         configureDemo(DemoScenario.HISTORICAL, allTime = true)
-        assertMetricsFit(ThemeMode.SYSTEM, listOf("—", "2", "0"))
+        assertMetricsFit(ThemeMode.SYSTEM, listOf("—", "2", "0"),
+            "Неизвестно. У завершённых циклов нет сведений о страницах")
         rule.onNodeWithTag("xp-card").performScrollTo()
         capture("system-statistics-unknown", ThemeMode.SYSTEM)
         for (route in listOf("xp-card", "overview-ReadingDynamics", "overview-ActivityCalendar", "overview-ReadingRecords")) {
@@ -128,8 +129,11 @@ class OverviewEvidenceTest {
         capture("system-library-stub", ThemeMode.SYSTEM)
     }
 
-    private fun assertMetricsFit(mode: ThemeMode, expectedValues: List<String>) {
+    private fun assertMetricsFit(mode: ThemeMode, expectedValues: List<String>, exactPagesDescription: String) {
         rule.onNodeWithTag("overview-metrics").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("overview-pages")
+            .assert(hasContentDescription("Прочитанные страницы"))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, exactPagesDescription))
         val card = layoutBounds("overview-metrics")
         val cells = metricKeys.associateWith { key -> layoutBounds("overview-$key") }
         val leftDivider = layoutBounds("overview-divider-pages")

@@ -53,6 +53,7 @@ app/src/main/res/values/launcher_colors.xml
 app/src/main/res/values/strings.xml
 app/src/main/res/values/themes.xml
 app/src/main/res/xml/data_extraction_rules.xml
+app/src/test/java/ru/gleb/readingjournal/OverviewPagesFormatTest.kt
 app/src/test/java/ru/gleb/readingjournal/ReadingDemoTest.kt
 app/src/test/java/ru/gleb/readingjournal/ShellStateTest.kt
 build.gradle.kts

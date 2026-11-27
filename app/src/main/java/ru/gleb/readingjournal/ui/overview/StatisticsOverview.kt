@@ -87,12 +87,13 @@ private fun OverviewMetrics(snapshot: PeriodSnapshot, streak: Int) {
 private fun MetricCell(label: String, accessibleLabel: String, quantity: QuantityUi,
     modifier: Modifier, key: String) {
     val colors = LocalJournalColors.current
-    val value = quantity.value?.let { formatCount(it) } ?: "—"
+    val exactValue = quantity.value?.let(::formatCount) ?: "—"
+    val value = if (key == "pages") quantity.value?.let(::formatOverviewPages) ?: "—" else exactValue
     val spokenValue = quantity.value?.let { count ->
         when (key) {
-            "pages" -> "$value ${plural(count, "страница", "страницы", "страниц")}"
-            "cycles" -> "$value ${plural(count, "завершённый цикл", "завершённых цикла", "завершённых циклов")}, включая перечитывания"
-            else -> "$value ${plural(count, "день", "дня", "дней")}"
+            "pages" -> "$exactValue ${plural(count, "страница", "страницы", "страниц")}"
+            "cycles" -> "$exactValue ${plural(count, "завершённый цикл", "завершённых цикла", "завершённых циклов")}, включая перечитывания"
+            else -> "$exactValue ${plural(count, "день", "дня", "дней")}"
         }
     }
     Column(modifier.testTag("overview-$key").clearAndSetSemantics {
@@ -167,3 +168,10 @@ private fun OverviewCard(onClick: () -> Unit, tag: String, label: String,
 private fun formatCount(value: Int): String =
     NumberFormat.getIntegerInstance(Locale.forLanguageTag("ru-RU")).format(value)
         .map { if (it.isWhitespace() || Character.isSpaceChar(it)) ' ' else it }.joinToString("")
+
+internal fun formatOverviewPages(value: Int): String {
+    if (value !in 1_000 until 1_000_000) return formatCount(value)
+    val thousands = value / 1_000
+    val tenths = value % 1_000 / 100
+    return if (tenths == 0) "${thousands}K" else "$thousands,${tenths}K"
+}

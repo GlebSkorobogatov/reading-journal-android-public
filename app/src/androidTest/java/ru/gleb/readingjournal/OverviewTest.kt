@@ -67,8 +67,13 @@ class OverviewTest {
         val streak = rule.onNodeWithTag("overview-streak").fetchSemanticsNode().config[SemanticsProperties.StateDescription]
         step("PREVIOUS")
         rule.onNodeWithTag("period-PREVIOUS").assertIsNotEnabled()
-        for (period in listOf("Сегодня", "7 дней", "30 дней", "90 дней", "Год", "Всё время")) {
+        for ((period, pages, cycles) in listOf(
+            Triple("Сегодня", "21", "0"), Triple("7 дней", "89", "1"), Triple("30 дней", "320", "1"),
+            Triple("90 дней", "980", "4"), Triple("Год", "1,5K", "5"), Triple("Всё время", "1,7K", "7")
+        )) {
             rule.onNodeWithTag("selected-period").assertTextEquals(period)
+            rule.onNodeWithTag("overview-pages-value", useUnmergedTree = true).assertTextEquals(pages)
+            rule.onNodeWithTag("overview-cycles-value", useUnmergedTree = true).assertTextEquals(cycles)
             if (period != "Всё время") step("NEXT")
         }
         rule.onNodeWithTag("period-NEXT").assertIsNotEnabled()
