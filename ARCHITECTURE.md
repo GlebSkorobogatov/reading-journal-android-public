@@ -2,7 +2,7 @@
 
 Редакция 2.1 · REV-02 · 23 ноября 2026 г.
 
-**Статус:** REV-02 **ACCEPTED / NOT MERGED**. Владелец принял D01–D08/A01–A03 и документацию без замечаний 23 ноября 2026 г. После merge FIX-01 текущий этап ограничен синхронизацией PR №5 и повторными Quick и Full. Merge PR №5 требует отдельного задания. UI-02 и UI-03 — NOT STARTED.
+**Статус:** REV-02 **ACCEPTED / MERGED**, main `52bf62914dcdddd95cc60aaf3a2369efaff9d3fd`. UI-02 принят владельцем 27 ноября 2026 г. на Samsung Galaxy A55, 14/14 PASS; принятая сборка — Head `63fea51ff8f5f8e32ba3b1dfc1fca0165ccca57e`. Merge [PR №7](https://github.com/GlebSkorobogatov/reading-journal-android-public/pull/7) разрешён после проверок итогового Head. UI-03 — NOT STARTED.
 
 ## 0. Применение
 
@@ -270,4 +270,4 @@ ADR-01/03/09 сохраняют архитектурные принципы; ADR
 
 Трассируемость: READ/PAGE → §§4–6; CAL → §7; ANALYTICS/BOOKSTAT → §8; XP → §9; SCOPE/NFR → §§1–5, 10. D01/D03/D04/D12 → §§3–6; D02 → §§4, 7; D05–D08 → §9; D09–D11 → §§3, 8. Полный реестр происхождения — docs/decisions/REV-01-reading-without-timer.md.
 
-REV-01 и его модели данных приняты 14 ноября. REV-02 согласует UI-контракты, маршруты и представление. [ADR-12](docs/decisions/adr/ADR-12-rev02-navigation.md) фиксирует границы. ADR-10/11 сохраняют историю каркаса и CI. Технический FIX-01 принят и объединён через PR №6. Код, ресурсы, Room-схема, Manifest и CI совпадают с main. REV-02 принят как документация, PR №5 остаётся открытым. UI-02 и UI-03 — NOT STARTED.
+REV-01 и его модели данных приняты 14 ноября. REV-02 согласует UI-контракты, маршруты и представление. [ADR-12](docs/decisions/adr/ADR-12-rev02-navigation.md) фиксирует границы. ADR-10/11 сохраняют историю каркаса и CI. Технический FIX-01 принят и объединён через PR №6. REV-02 принят и объединён через PR №5, main `52bf62914dcdddd95cc60aaf3a2369efaff9d3fd`. UI-02 принят владельцем 27 ноября 2026 г. Room-схема в UI-фазе не подключается. UI-03 — NOT STARTED.

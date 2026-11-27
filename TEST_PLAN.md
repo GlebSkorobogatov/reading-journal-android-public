@@ -2,7 +2,7 @@
 
 Редакция 2.1 · REV-02 · 23 ноября 2026 г.
 
-**Статус:** REV-02 **ACCEPTED / NOT MERGED**. Владелец принял D01–D08/A01–A03 и документацию без замечаний 23 ноября 2026 г. После merge FIX-01 текущий этап ограничен синхронизацией PR №5 и повторными Quick и Full. Merge PR №5 требует отдельного задания. UI-02 и UI-03 — NOT STARTED.
+**Статус:** REV-02 **ACCEPTED / MERGED**, main `52bf62914dcdddd95cc60aaf3a2369efaff9d3fd`. UI-02 принят владельцем 27 ноября 2026 г. на Samsung Galaxy A55, 14/14 PASS; принятая сборка — Head `63fea51ff8f5f8e32ba3b1dfc1fca0165ccca57e`. Merge [PR №7](https://github.com/GlebSkorobogatov/reading-journal-android-public/pull/7) разрешён после проверок итогового Head. UI-03 — NOT STARTED.
 
 ## 0. План, а не результаты
 
@@ -14,7 +14,7 @@ JVM — чистые правила и независимые оракулы д�
 
 Fixed Clock/ZoneProvider; UTC/Asia/Yekaterinburg/Europe/Berlin, полночь, DST29.03/25.10.2026, 29.02.2024, границы недели/месяца/года. Только синтетические БД/книги/копии, фиксированный seed/locale/fontScale/плотность/источник SHA. Независимый expected не вызывает production calculator. Для UI пусто/много/0/историческое неизвестное/ошибка/успех/keyboard/scroll, обе темы и системная смена; fontScale1.0/1.3/1.5/2.0, поворот, reduced motion/TalkBack. Preview/эмулятор не заменяют A55.
 
-DOC/REPO/UI-01 и REV-01 пройдены. Принятый main после FIX-01 — `5ea3f797f42ee1576655871756b7adf33c62c734`. PR №2 и PR №4 не приняты/не объединены. PR №4 на 8a5b2e0 имеет Quick/Full PASS, 22 JVM и 34 Android на каждой API26/35/36, READY FOR MANUAL ACCEPTANCE/A55 NOT RUN; это результаты прежней структуры, не тесты REV-02. UI-02 по REV-02 не выполнен, UI-03 не начат. REV-02 ACCEPTED 23 ноября. На синхронизированном Head PR №5 обязательны документационный аудит, CI-script unit tests, diff --check, Quick и Full через Draft → Ready. Merge требует отдельного задания. A55 для этого этапа не требуется. UI-READY/ FUNCTIONAL-READY/ PERSONAL-READY и 13 F-задач сохраняются; F-06/F-07 отменены.
+DOC/REPO/UI-01 и REV-01 пройдены. Принятый main после FIX-01 — `5ea3f797f42ee1576655871756b7adf33c62c734`; REV-02 объединён, текущая база UI-02 — `52bf62914dcdddd95cc60aaf3a2369efaff9d3fd`. PR №2 и PR №4 не приняты/не объединены. PR №4 на 8a5b2e0 имеет Quick/Full PASS, 22 JVM и 34 Android на каждой API26/35/36, READY FOR MANUAL ACCEPTANCE/A55 NOT RUN; это результаты прежней структуры, не тесты REV-02. UI-02 принят владельцем 27 ноября 2026 г., 14/14 PASS на Samsung Galaxy A55. UI-03 не начат. UI-READY/ FUNCTIONAL-READY/ PERSONAL-READY и 13 F-задач сохраняются; F-06/F-07 отменены.
 
 ## 2. Сохранённые AC и отменённые проверки
 
@@ -465,7 +465,7 @@ R-27–36: F-02/13/14/15, QA-01, REL-01. Проверять факты и про
 
 ## 5. Матрица задач и минимальные проверки
 
-Карточки IMPLEMENTATION_PLAN задают scope/все проверки полностью. Матрица не ослабляет их. Отменённые F-06/F-07 не исполняются. Все 32 карточки, включая принятые UI-01/REV-01 и текущий REV-02, перечислены ниже.
+Карточки IMPLEMENTATION_PLAN задают scope/все проверки полностью. Матрица не ослабляет их. Отменённые F-06/F-07 не исполняются. Все 32 карточки, включая принятые UI-01, REV-01, REV-02 и UI-02, перечислены ниже.
 
 | ID | Покрытие | Минимум / gate |
 |---|---|---|
@@ -774,4 +774,4 @@ R-27–36: F-02/13/14/15, QA-01, REL-01. Проверять факты и про
 
 ## 11. Документационный gate REV-02
 
-Сквозной аудит охватывает D01–D08/A01–A03, PRD/AC, архитектуру, UI, план и REV2-T. Сверяются REV-01, токены, приложение А, внутренние ссылки, инвентарь, SHA-256 и все недокументационные blobs с main после FIX-01. На итоговом Head PR №5 обязательны CI-script unit tests, diff --check, Quick и Full. Android build может штатно пропускаться в Quick для docs-only. Full требует успешных build/lint/JVM, Compose на API 26/35/36 и Full acceptance. Все REV2-T остаются будущими NOT RUN. PR №5 остаётся открытым до отдельного задания на merge.
+Сквозной аудит охватывает D01–D08/A01–A03, PRD/AC, архитектуру, UI, план и REV2-T. Сверяются REV-01, токены, приложение А, внутренние ссылки, инвентарь, SHA-256 и все недокументационные blobs с main после FIX-01. На итоговом Head PR №5 обязательны CI-script unit tests, diff --check, Quick и Full. Android build может штатно пропускаться в Quick для docs-only. Full требует успешных build/lint/JVM, Compose на API 26/35/36 и Full acceptance. На этапе REV-02 проверки REV2-T были будущими. PR №5 объединён. Исполнение применимых REV2-T относится к UI-02 и зафиксировано в docs/acceptance/UI-02.md.
