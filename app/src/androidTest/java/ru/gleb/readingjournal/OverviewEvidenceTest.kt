@@ -6,6 +6,9 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.os.SystemClock
 import android.util.Log
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -33,6 +36,7 @@ import kotlin.math.abs
 class OverviewEvidenceTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
     private val tab = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+    private val metricKeys = listOf("pages", "cycles", "streak")
 
     @Test fun bothScreensFitInActualAndroidConfigurationMatrix() {
         val original = rule.activity.resources.configuration.fontScale
@@ -65,11 +69,7 @@ class OverviewEvidenceTest {
                         rule.onNodeWithTag("xp-card").performScrollTo()
                         assertViewport("statistics-feed")
                         capture("$prefix-statistics", mode)
-                        rule.onNodeWithTag("overview-metrics").performScrollTo().assertIsDisplayed()
-                        for (metric in listOf("pages", "cycles", "streak")) {
-                            assertTextFits("overview-$metric-value", mode)
-                            assertTextFits("overview-$metric-label", mode)
-                        }
+                        assertMetricsFit(mode, listOf("128 540", "142", "248"))
                         capture("$prefix-metrics", mode)
                         rule.onNodeWithTag("period-NEXT").performScrollTo().assertIsNotEnabled()
                         rule.onNodeWithTag("overview-ReadingRecords").performScrollTo()
@@ -93,6 +93,9 @@ class OverviewEvidenceTest {
         configureDemo(DemoScenario.EMPTY)
         rule.onNodeWithTag("reading-empty").assertIsDisplayed()
         capture("system-empty", ThemeMode.SYSTEM)
+        select("Статистика")
+        assertMetricsFit(ThemeMode.SYSTEM, listOf("0", "0", "0"))
+        select("Читаю сейчас")
         configureDemo(DemoScenario.SINGLE)
         rule.onNodeWithTag("book-coast").assertIsDisplayed()
         capture("system-single", ThemeMode.SYSTEM)
@@ -109,8 +112,12 @@ class OverviewEvidenceTest {
         configureDemo(DemoScenario.MANY)
         rule.onNodeWithTag("reading-feed").performScrollToNode(hasTestTag("record-extra-12"))
         capture("system-many-last-book", ThemeMode.SYSTEM)
-        configureDemo(DemoScenario.HISTORICAL, allTime = true)
+        configureDemo(DemoScenario.MULTIPLE, allTime = true)
         select("Статистика")
+        assertMetricsFit(ThemeMode.SYSTEM, listOf("1 795", "7", "3"))
+        configureDemo(DemoScenario.HISTORICAL, allTime = true)
+        assertMetricsFit(ThemeMode.SYSTEM, listOf("—", "2", "0"))
+        rule.onNodeWithTag("xp-card").performScrollTo()
         capture("system-statistics-unknown", ThemeMode.SYSTEM)
         for (route in listOf("xp-card", "overview-ReadingDynamics", "overview-ActivityCalendar", "overview-ReadingRecords")) {
             rule.onNodeWithTag(route).performScrollTo().performClick()
@@ -121,6 +128,48 @@ class OverviewEvidenceTest {
         capture("system-library-stub", ThemeMode.SYSTEM)
     }
 
+    private fun assertMetricsFit(mode: ThemeMode, expectedValues: List<String>) {
+        rule.onNodeWithTag("overview-metrics").performScrollTo().assertIsDisplayed()
+        val card = layoutBounds("overview-metrics")
+        val cells = metricKeys.associateWith { key -> layoutBounds("overview-$key") }
+        val leftDivider = layoutBounds("overview-divider-pages")
+        val rightDivider = layoutBounds("overview-divider-cycles")
+        val ordered = listOf(cells.getValue("pages"), leftDivider, cells.getValue("cycles"),
+            rightDivider, cells.getValue("streak"))
+        val context = "API=${Build.VERSION.SDK_INT} theme=$mode config=${rule.activity.resources.configuration}"
+        assertTrue("Equal metric widths: $cells ($context)",
+            cells.values.maxOf { it.width } - cells.values.minOf { it.width } <= 1f)
+        assertTrue("Both dividers have nonzero width ($context)", leftDivider.width > 0f && rightDivider.width > 0f)
+        ordered.forEach { bounds -> assertInside(bounds, card, context) }
+        ordered.zipWithNext().forEach { (left, right) ->
+            assertTrue("Metric regions and dividers do not overlap: $left, $right ($context)",
+                left.right <= right.left + 1f)
+        }
+        for ((index, key) in metricKeys.withIndex()) {
+            val cell = cells.getValue(key)
+            val valueTag = "overview-$key-value"
+            val labelTag = "overview-$key-label"
+            rule.onNodeWithTag(valueTag, useUnmergedTree = true).assertTextEquals(expectedValues[index])
+            for (tag in listOf(valueTag, labelTag)) {
+                assertInside(layoutBounds(tag), cell, "$tag ($context)")
+                assertTextFits(tag, mode)
+            }
+        }
+    }
+
+    private fun layoutBounds(tag: String): Rect {
+        val coordinates = rule.onNodeWithTag(tag, useUnmergedTree = true)
+            .fetchSemanticsNode().layoutInfo.coordinates
+        return Rect(coordinates.positionInRoot(), Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()))
+    }
+
+    private fun assertInside(inner: Rect, outer: Rect, context: String) {
+        // Allow one pixel for fractional positioning, independently of the strict text overflow check.
+        assertTrue("$inner fits inside $outer ($context)",
+            inner.left >= outer.left - 1f && inner.top >= outer.top - 1f &&
+                inner.right <= outer.right + 1f && inner.bottom <= outer.bottom + 1f)
+    }
+
     private fun assertTextFits(tag: String, mode: ThemeMode) {
         val node = rule.onNodeWithTag(tag, useUnmergedTree = true)
         val layouts = mutableListOf<TextLayoutResult>()
@@ -128,7 +177,7 @@ class OverviewEvidenceTest {
         val config = rule.activity.resources.configuration
         val root = rule.onRoot().fetchSemanticsNode().size
         val card = rule.onNodeWithTag("overview-metrics").fetchSemanticsNode().size
-        val cells = listOf("pages", "cycles", "streak").map { key ->
+        val cells = metricKeys.map { key ->
             rule.onNodeWithTag("overview-$key", useUnmergedTree = true).fetchSemanticsNode().size
         }
         val text = node.fetchSemanticsNode().size
@@ -143,7 +192,8 @@ class OverviewEvidenceTest {
                     "(${layout.getLineRight(line)},${layout.getLineBottom(line)})"
             }
             "text=«${input.text.text}» fontSize=${input.style.fontSize} constraints=${input.constraints} " +
-                "layoutPx=${layout.size} lines=${layout.lineCount} lineBounds=[$lines] " +
+                "layoutPx=${layout.size} paragraphPx=${layout.multiParagraph.width}x${layout.multiParagraph.height} " +
+                "lines=${layout.lineCount} lineBounds=[$lines] " +
                 "maxLines=${input.maxLines} softWrap=${input.softWrap} overflow=${input.overflow} " +
                 "didOverflowWidth=${layout.didOverflowWidth} didOverflowHeight=${layout.didOverflowHeight} " +
                 "hasVisualOverflow=${layout.hasVisualOverflow}"
@@ -152,6 +202,17 @@ class OverviewEvidenceTest {
         Log.i("OverviewMetricLayout", diagnostic)
         assertTrue("Text layout present for $tag: $diagnostic", layouts.isNotEmpty())
         assertTrue("No visual overflow in $tag: $diagnostic", layouts.none { it.hasVisualOverflow })
+        for (layout in layouts) {
+            assertTrue("Text layout agrees with the measured node: $diagnostic", layout.size == text)
+            assertTrue("All text is laid out: $diagnostic", layout.lineCount > 0 &&
+                layout.getLineEnd(layout.lineCount - 1) == layout.layoutInput.text.length)
+            for (line in 0 until layout.lineCount) {
+                assertTrue("Unclipped line $line in $tag: $diagnostic", !layout.isLineEllipsized(line))
+                assertInside(Rect(layout.getLineLeft(line), layout.getLineTop(line),
+                    layout.getLineRight(line), layout.getLineBottom(line)),
+                    Rect(0f, 0f, text.width.toFloat(), text.height.toFloat()), diagnostic)
+            }
+        }
     }
 
     private fun assertViewport(tag: String) {

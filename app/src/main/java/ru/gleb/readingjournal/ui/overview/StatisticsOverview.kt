@@ -65,10 +65,10 @@ private fun OverviewMetrics(snapshot: PeriodSnapshot, streak: Int) {
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                 MetricCell("Страницы", "Прочитанные страницы", snapshot.pages,
                     Modifier.weight(1f), "pages")
-                VerticalDivider(Modifier.fillMaxHeight(), Metric.border, colors.outline)
+                VerticalDivider(Modifier.fillMaxHeight().testTag("overview-divider-pages"), Metric.border, colors.outline)
                 MetricCell("Про\u00adчте\u00adния", "Завершённые прочтения", snapshot.completedCycles,
                     Modifier.weight(1f), "cycles")
-                VerticalDivider(Modifier.fillMaxHeight(), Metric.border, colors.outline)
+                VerticalDivider(Modifier.fillMaxHeight().testTag("overview-divider-cycles"), Metric.border, colors.outline)
                 MetricCell("Серия", "Текущая серия", QuantityUi(streak), Modifier.weight(1f), "streak")
             }
             val explanations = listOfNotNull(snapshot.pages.explanation, snapshot.completedCycles.explanation).distinct()
@@ -100,12 +100,14 @@ private fun MetricCell(label: String, accessibleLabel: String, quantity: Quantit
         stateDescription = spokenValue ?: "Неизвестно. ${quantity.explanation.orEmpty()}"
     }.padding(horizontal = Space.xs, vertical = Space.md),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Space.xs)) {
-        Text(value, Modifier.testTag("overview-$key-value"), textAlign = TextAlign.Center,
+        // Use the same width for drawing and Compose's semantic remeasurement.
+        Text(value, Modifier.fillMaxWidth().testTag("overview-$key-value"), textAlign = TextAlign.Center,
             style = JournalType.number)
-        Text(label, Modifier.testTag("overview-$key-label"), textAlign = TextAlign.Center,
+        Text(label, Modifier.fillMaxWidth().testTag("overview-$key-label"), textAlign = TextAlign.Center,
             style = JournalType.caption)
         if (key == "streak" && quantity.value != null) {
-            Text(plural(quantity.value, "день", "дня", "дней"), style = JournalType.caption, color = colors.textSecondary)
+            Text(plural(quantity.value, "день", "дня", "дней"), Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center, style = JournalType.caption, color = colors.textSecondary)
         }
     }
 }
