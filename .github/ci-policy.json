@@ -1,5 +1,5 @@
 {
-  "task": "UI-02",
+  "task": "UI-02.1",
   "minimum_jvm": 3,
   "minimum_compose": 10,
   "compose_apis": [26, 35, 36],

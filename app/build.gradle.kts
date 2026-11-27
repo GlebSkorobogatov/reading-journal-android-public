@@ -19,8 +19,8 @@ android {
         applicationId = "ru.gleb.readingjournal"
         minSdk = 26
         targetSdk = 37
-        versionCode = 5
-        versionName = "0.2.0-rev02"
+        versionCode = 6
+        versionName = "0.2.1-floating"
         buildConfigField("String", "SOURCE_SHA", "\"${sourceSha.get()}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

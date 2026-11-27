@@ -174,8 +174,9 @@ private fun JournalShell(
             }
             composable("Настройки") {
                 ShellPage("Настройки", onAction = { nav.popBackStack() }) {
-                    Column(Modifier.fillMaxSize().testTag("settings-content").navigationBarsPadding()
-                        .verticalScroll(rememberScrollState()).padding(Space.lg),
+                    val top = LocalChromeObstruction.current.top
+                    Column(Modifier.fillMaxSize().testTag("settings-content").verticalScroll(rememberScrollState())
+                        .padding(start = Space.lg, end = Space.lg, bottom = Space.lg, top = top + Space.lg),
                         verticalArrangement = Arrangement.spacedBy(Space.lg)) {
                         Text("Демонстрационные настройки UI-01. Выбор темы не сохраняется после завершения процесса.")
                         Text("Тема", Modifier.semantics { heading() }, style = JournalType.section)
@@ -199,8 +200,9 @@ private fun JournalShell(
                 }
                 composable("DemoScenarios") {
                     ShellPage("Наборы демонстрации", onAction = { nav.popBackStack() }) {
-                        Column(Modifier.fillMaxSize().navigationBarsPadding()
-                            .verticalScroll(rememberScrollState()).padding(Space.lg),
+                        val top = LocalChromeObstruction.current.top
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                            .padding(start = Space.lg, end = Space.lg, bottom = Space.lg, top = top + Space.lg),
                             verticalArrangement = Arrangement.spacedBy(Space.md)) {
                             DemoScenario.entries.forEach { scenario ->
                                 JournalChip(scenario.title, overview.value.scenario == scenario,
@@ -221,18 +223,9 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.isSettingsReturn()
 @Composable
 private fun ShellPage(title: String, onAction: () -> Unit, onTab: ((String) -> Unit)? = null,
     content: @Composable () -> Unit) {
-    Scaffold(containerColor = LocalJournalColors.current.background,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            JournalTopBar(title) {
-                val label = if (onTab != null) "Настройки" else "Назад"
-                JournalIconButton(label, onAction) { LineIcon(label) }
-            }
-        },
-        bottomBar = { if (onTab != null) JournalBottomBar(tabTitles, title, onTab) { LineIcon(it) } }
-    ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()) { content() }
-    }
+    JournalChrome(title, actionLabel = if (onTab != null) "Настройки" else "Назад", onAction = onAction,
+        tabs = if (onTab != null) tabTitles else null, selectedTab = title,
+        onTab = { onTab?.invoke(it) }, autoHide = !systemTouchExplorationEnabled(), content = content)
 }
 
 
@@ -242,7 +235,8 @@ private fun recordPath(bookId: BookId, cycleId: CycleId) =
 
 @Composable
 private fun FuturePage(title: String, context: String? = null) {
-    BoxWithConstraints(Modifier.fillMaxSize().navigationBarsPadding().testTag("placeholder-viewport")) {
+    val top = LocalChromeObstruction.current.top
+    BoxWithConstraints(Modifier.fillMaxSize().padding(top = top).testTag("placeholder-viewport")) {
         val viewportHeight = maxHeight
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
             .heightIn(min = viewportHeight).padding(Space.lg),
