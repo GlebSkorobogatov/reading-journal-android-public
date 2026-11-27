@@ -138,14 +138,15 @@ fun JournalProgress(value: Float?, description: String, modifier: Modifier = Mod
 fun JournalCover(title: String, author: String, stableKey: String, modifier: Modifier = Modifier,
     painter: Painter? = null) {
     val index = (stableKey.hashCode().toLong() and 0x7fffffff) % CoverColors.size
+    val initial = coverInitial(title)
     Box(modifier.aspectRatio(Metric.coverRatio).clip(JournalShape.control)
         .background(CoverColors[index.toInt()]).semantics(mergeDescendants = true) {
-            contentDescription = "Обложка: $title, $author" }, contentAlignment = Alignment.Center) {
+            contentDescription = "Обложка: $title, $author"
+            if (painter == null) stateDescription = "Заглушка обложки: $initial"
+        }, contentAlignment = Alignment.Center) {
         if (painter != null) Image(painter, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-        else Column(Modifier.verticalScroll(rememberScrollState()).padding(Space.md), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
-            Text(title, color = CoverText, style = JournalType.literary)
-            Text(author, color = CoverText, style = JournalType.caption)
-        }
+        else Text(initial, Modifier.clearAndSetSemantics {}, color = CoverText,
+            style = JournalType.book)
     }
 }
 @Composable

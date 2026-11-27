@@ -12,19 +12,19 @@ import ru.gleb.readingjournal.app.MainActivity
 class ShellTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
     @Test fun tabsSettingsBackAndRotation() {
-        rule.onNodeWithText("Главная · UI-01").assertIsDisplayed()
+        rule.onNodeWithText("Не количество страниц, а глубина понимания.").assertIsDisplayed()
         rule.onNodeWithText("Библиотека", useUnmergedTree = true).performClick()
-        rule.onNodeWithText("Библиотека · UI-01").assertIsDisplayed()
+        rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
         rule.onNode(hasText("Библиотека") and hasClickAction()).assertIsSelected()
         rule.onNodeWithContentDescription("Настройки").performClick()
         rule.activityRule.scenario.recreate()
         rule.onNodeWithText("Тема").assertIsDisplayed()
         rule.onNodeWithContentDescription("Назад").performClick()
-        rule.onNodeWithText("Библиотека · UI-01").assertIsDisplayed()
-        rule.onNodeWithText("Достижения").performClick()
-        rule.onNodeWithText("Достижения · UI-01").assertIsDisplayed()
+        rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
+        rule.onNode(hasText("Статистика") and hasClickAction()).performClick()
+        rule.onNodeWithTag("xp-card").assertIsDisplayed()
         rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
-        rule.onNodeWithText("Главная · UI-01").assertIsDisplayed()
+        rule.onNodeWithText("Не количество страниц, а глубина понимания.").assertIsDisplayed()
     }
     @Test fun themesAndComponentSemantics() {
         rule.onNodeWithContentDescription("Настройки").performClick()

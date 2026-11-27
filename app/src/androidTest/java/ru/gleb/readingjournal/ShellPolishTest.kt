@@ -22,17 +22,24 @@ class ShellPolishTest {
             rule.onNodeWithContentDescription("Настройки").performClick()
             rule.onNodeWithText(theme).performClick()
             rule.onNodeWithContentDescription("Назад").performClick()
-            for (tab in listOf("Главная", "Библиотека", "Достижения")) {
-                rule.onNode(hasText(tab) and hasClickAction()).performClick()
-                rule.onNodeWithText("$tab · UI-01").assertIsDisplayed()
-                val viewport = rule.onNodeWithTag("placeholder-viewport").fetchSemanticsNode().boundsInRoot
-                val content = rule.onNodeWithTag("placeholder-content").fetchSemanticsNode().boundsInRoot
-                assertEquals("Empty state vertical centre: $tab/$theme", viewport.center.y, content.center.y, 1f)
-                assertEquals("Empty state horizontal centre: $tab/$theme", viewport.center.x, content.center.x, 1f)
-                rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
-                rule.onNode(hasText(tab) and hasClickAction()).assertIsSelected()
-                screenshot("polish-$theme-$tab")
-            }
+            rule.onNode(hasText("Библиотека") and hasClickAction()).performClick()
+            rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
+            assertPlaceholderCentered("Library/$theme")
+            rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
+            rule.onNode(hasText("Библиотека") and hasClickAction()).assertIsSelected()
+            screenshot("polish-$theme-library")
+
+            // The two live roots replaced their UI-01 placeholders. Their child stubs
+            // still use the same centering contract, with a system inset at the bottom.
+            rule.onNode(hasText("Читаю сейчас") and hasClickAction()).performClick()
+            rule.onNodeWithTag("reading-feed").performScrollToNode(hasTestTag("open-atlas"))
+            rule.onNodeWithTag("open-atlas").performClick()
+            assertPlaceholderCentered("Book/$theme")
+            rule.onNodeWithContentDescription("Назад").performClick()
+            rule.onNode(hasText("Статистика") and hasClickAction()).performClick()
+            rule.onNodeWithTag("xp-card").performClick()
+            assertPlaceholderCentered("Achievements/$theme")
+            rule.onNodeWithContentDescription("Назад").performClick()
         }
         // Android resource render with the emulator's adaptive mask, not a Samsung screenshot.
         val icon = rule.activity.packageManager.getApplicationIcon(rule.activity.applicationInfo)
@@ -48,11 +55,11 @@ class ShellPolishTest {
             rule.onNodeWithContentDescription("Настройки").performClick()
             rule.onNodeWithText("Тема").assertIsDisplayed()
             val initial = settingsBounds()
-            rule.onNodeWithText("Библиотека · UI-01").assertDoesNotExist()
+            rule.onNodeWithText("Библиотека · UI-03").assertDoesNotExist()
             startBack(0.6f, edge)
             rule.waitForIdle()
             // Prove the predictive preview is active, rather than testing an idle page.
-            rule.onNodeWithText("Библиотека · UI-01").assertExists()
+            rule.onNodeWithText("Библиотека · UI-03").assertExists()
             val during = settingsBounds()
             assertEquals("Back must not shrink Settings width", initial.width, during.width, 1f)
             assertEquals("Back must not shrink Settings height", initial.height, during.height, 1f)
@@ -62,15 +69,22 @@ class ShellPolishTest {
             rule.runOnUiThread { rule.activity.onBackPressedDispatcher.dispatchOnBackCancelled() }
             rule.onNodeWithText("Тема").assertIsDisplayed()
             assertEquals("Cancelled Back restores position", initial.left, settingsBounds().left, 1f)
-            rule.onNodeWithText("Библиотека · UI-01").assertDoesNotExist()
+            rule.onNodeWithText("Библиотека · UI-03").assertDoesNotExist()
             screenshot("polish-settings-back-cancelled-$edge")
             startBack(0.75f, edge)
             rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
-            rule.onNodeWithText("Библиотека · UI-01").assertIsDisplayed()
+            rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
             rule.onNode(hasText("Библиотека") and hasClickAction()).assertIsSelected()
             rule.onNodeWithTag("settings-content").assertDoesNotExist()
             screenshot("polish-settings-back-complete-$edge")
         }
+    }
+
+    private fun assertPlaceholderCentered(case: String) {
+        val viewport = rule.onNodeWithTag("placeholder-viewport").fetchSemanticsNode().boundsInRoot
+        val content = rule.onNodeWithTag("placeholder-content").fetchSemanticsNode().boundsInRoot
+        assertEquals("Empty state vertical centre: $case", viewport.center.y, content.center.y, 1f)
+        assertEquals("Empty state horizontal centre: $case", viewport.center.x, content.center.x, 1f)
     }
 
     private fun settingsBounds(): Rect {

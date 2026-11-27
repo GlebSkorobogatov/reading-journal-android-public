@@ -3,6 +3,9 @@ package ru.gleb.readingjournal.ui.designsystem
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import ru.gleb.readingjournal.R
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -19,15 +22,21 @@ import kotlin.math.sin
 @Composable
 fun LineIcon(name: String) {
     val color = LocalContentColor.current
+    if (name == "Читаю сейчас") {
+        Icon(painterResource(R.drawable.ic_closed_book), contentDescription = null,
+            modifier = Modifier.size(Metric.icon), tint = color)
+        return
+    }
     Canvas(Modifier.size(Metric.icon)) {
         val unit = size.width / 24f
         val outline = Stroke(1.5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
         scale(unit, unit, pivot = Offset.Zero) {
             when (name) {
-                "Главная" -> drawPath(Path().apply {
-                    moveTo(3f, 11f); lineTo(12f, 3f); lineTo(21f, 11f); lineTo(21f, 21f)
-                    lineTo(15f, 21f); lineTo(15f, 14f); lineTo(9f, 14f); lineTo(9f, 21f)
-                    lineTo(3f, 21f); close()
+                "Статистика" -> drawPath(Path().apply {
+                    moveTo(4f, 4f); lineTo(4f, 20f); lineTo(21f, 20f)
+                    moveTo(8f, 16f); lineTo(8f, 12f)
+                    moveTo(13f, 16f); lineTo(13f, 8f)
+                    moveTo(18f, 16f); lineTo(18f, 5f)
                 }, color, style = outline)
                 "Библиотека" -> {
                     // Upright book spines and a leaning volume: a collection, not a single page.
@@ -38,13 +47,16 @@ fun LineIcon(name: String) {
                     drawLine(color, Offset(16f, 4f), Offset(20f, 20f),
                         strokeWidth = 1.5f, cap = StrokeCap.Round)
                 }
-                "Достижения" -> {
-                    // A round medal with two ribbon tails; no cup, stem or pedestal.
+                "Вперёд", "Предыдущий период", "Следующий период" -> {
+                    val backward = name == "Предыдущий период"
                     drawPath(Path().apply {
-                        moveTo(8.5f, 12.7f); lineTo(7f, 21f); lineTo(12f, 18.5f)
-                        lineTo(17f, 21f); lineTo(15.5f, 12.7f)
+                        if (name != "Вперёд") {
+                            moveTo(4f, 12f); lineTo(20f, 12f)
+                        }
+                        val tip = if (backward) 4f else 20f
+                        val tail = if (backward) 10f else 14f
+                        moveTo(tail, 6f); lineTo(tip, 12f); lineTo(tail, 18f)
                     }, color, style = outline)
-                    drawCircle(color, radius = 5.5f, center = Offset(12f, 8.5f), style = outline)
                 }
                 "Назад" -> drawPath(Path().apply {
                     moveTo(15f, 4f); lineTo(7f, 12f); lineTo(15f, 20f)
