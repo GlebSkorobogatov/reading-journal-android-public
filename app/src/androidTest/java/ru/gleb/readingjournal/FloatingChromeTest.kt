@@ -90,6 +90,7 @@ class FloatingChromeTest {
         val action = top("chrome-action")
         val tabs = top("chrome-tabs")
         rule.onNodeWithTag("feed").performTouchInput { swipeUp(durationMillis = 16) }
+        rule.mainClock.advanceTimeByFrame()
         val started = progress()
         val scrolled = top("item-0")
         assertTrue("progress=$started", started > 0f && started < 0.5f)
@@ -120,6 +121,7 @@ class FloatingChromeTest {
         rule.setContent { SamplePage { SampleFeed() } }
         rule.mainClock.advanceTimeByFrame()
         rule.onNodeWithTag("feed").performTouchInput { swipeUp(durationMillis = 16) }
+        rule.mainClock.advanceTimeByFrame()
         val mid = progress()
         assertTrue("progress=$mid", mid > 0f && mid < 0.5f)
         rule.onNodeWithTag("feed").performTouchInput { swipeDown(durationMillis = 48) }
@@ -130,11 +132,11 @@ class FloatingChromeTest {
 
     @Test fun overscrollPastEitherEndDoesNotCreateAFalseHide() {
         rule.setContent { SamplePage { SampleFeed() } }
-        rule.onNodeWithTag("feed").performScrollToNode(hasTestTag("item-29"))
+        rule.onNodeWithTag("feed").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 100_000f) }
         rule.onNodeWithTag("feed").performTouchInput { swipeUp() }
         rule.waitForIdle()
         assertEquals(0f, progress(), 0.02f)
-        rule.onNodeWithTag("feed").performScrollToNode(hasTestTag("item-0"))
+        rule.onNodeWithTag("feed").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, -100_000f) }
         rule.onNodeWithTag("feed").performTouchInput { swipeUp() }
         rule.waitForIdle()
         assertEquals(1f, progress(), 0.02f)
@@ -260,7 +262,8 @@ class FloatingChromeTest {
         rule.waitForIdle()
         assertEquals(0f, progress(), 0.02f)
         rule.onNode(tab and hasText("Статистика")).assertIsSelected()
-        assertVisible()
+        rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
+        rule.onAllNodes(tab).assertCountEquals(3)
         rule.onNodeWithTag("feed").performTouchInput { swipeUp() }
         rule.waitForIdle()
         rule.onNodeWithTag("switch").performClick()
@@ -270,7 +273,9 @@ class FloatingChromeTest {
         assertEquals(0f, progress(), 0.02f)
         rule.onNodeWithTag("switch").performClick()
         rule.waitForIdle()
-        assertVisible()
+        rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
+        rule.onAllNodes(tab).assertCountEquals(3)
+        assertEquals(0f, progress(), 0.02f)
         rule.onNode(tab and hasText("Статистика")).assertIsSelected()
     }
 
@@ -304,9 +309,9 @@ class FloatingChromeTest {
                     assertTrue(tabs.left > root.left + base)
                     assertTrue(tabs.right < root.right - base)
                     assertTrue(tabs.bottom < root.bottom - base)
-                    rule.onNodeWithText("Читаю сейчас").assertIsDisplayed()
-                    rule.onNodeWithText("Статистика").assertIsDisplayed()
-                    rule.onNodeWithText("Библиотека").assertIsDisplayed()
+                    rule.onNode(tab and hasText("Читаю сейчас")).assertIsDisplayed()
+                    rule.onNode(tab and hasText("Статистика")).assertIsDisplayed()
+                    rule.onNode(tab and hasText("Библиотека")).assertIsDisplayed()
                 }
             }
         }

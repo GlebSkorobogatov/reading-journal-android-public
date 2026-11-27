@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -50,6 +51,8 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -145,7 +148,16 @@ internal fun JournalChrome(
     val alpha = 1f - progress.value
     Box(Modifier.fillMaxSize().testTag("chrome-root")) {
         Box(
-            Modifier.fillMaxSize().nestedScroll(connection)
+            Modifier.fillMaxSize()
+                .pointerInput(driver) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            driver.pointerDown = event.changes.any { it.pressed }
+                        }
+                    }
+                }
+                .nestedScroll(connection)
                 .padding(bottom = with(density) { bottomPx.toDp() })
                 .consumeWindowInsets(WindowInsets(bottom = with(density) { bottomPx.toDp() }))
                 .imePadding(),
@@ -165,21 +177,24 @@ internal fun JournalChrome(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top) {
                 BoxWithConstraints(Modifier.weight(1f)) {
-                    Surface(Modifier.widthIn(max = maxWidth).wrapContentWidth(Alignment.Start).testTag("chrome-title"),
-                        shape = JournalShape.largeCard, color = LocalJournalColors.current.surface,
-                        border = BorderStroke(Metric.border, LocalJournalColors.current.outline),
-                        shadowElevation = Metric.shadow) {
-                        Text(title, Modifier.padding(horizontal = Space.lg, vertical = Space.md).semantics { heading() },
-                            style = JournalType.section)
+                    Box(Modifier.widthIn(max = maxWidth).wrapContentWidth(Alignment.Start).testTag("chrome-title")) {
+                        Surface(shape = JournalShape.largeCard, color = LocalJournalColors.current.surface,
+                            border = BorderStroke(Metric.border, LocalJournalColors.current.outline),
+                            shadowElevation = Metric.shadow) {
+                            Text(title, Modifier.padding(horizontal = Space.lg, vertical = Space.md).semantics { heading() },
+                                style = JournalType.section)
+                        }
                     }
                 }
                 Spacer(Modifier.width(Space.sm))
-                Surface(onClick = onAction, enabled = !hidden,
-                    modifier = Modifier.testTag("chrome-action").semantics { contentDescription = actionLabel },
-                    shape = JournalShape.largeCard, color = LocalJournalColors.current.surface,
-                    border = BorderStroke(Metric.border, LocalJournalColors.current.outline),
-                    shadowElevation = Metric.shadow) {
-                    Box(Modifier.size(Metric.touch), contentAlignment = Alignment.Center) { LineIcon(actionLabel) }
+                Box(Modifier.testTag("chrome-action")
+                    .semantics(mergeDescendants = true) { contentDescription = actionLabel }
+                    .clickable(enabled = !hidden, onClick = onAction)) {
+                    Surface(shape = JournalShape.largeCard, color = LocalJournalColors.current.surface,
+                        border = BorderStroke(Metric.border, LocalJournalColors.current.outline),
+                        shadowElevation = Metric.shadow) {
+                        Box(Modifier.size(Metric.touch), contentAlignment = Alignment.Center) { LineIcon(actionLabel) }
+                    }
                 }
             }
         }
@@ -192,8 +207,8 @@ internal fun JournalChrome(
                 contentAlignment = Alignment.Center) {
                 BoxWithConstraints {
                     val share = maxWidth / tabs.size
-                    Surface(Modifier.wrapContentWidth().testTag("chrome-tabs"),
-                        shape = JournalShape.largeCard, color = colors.surface,
+                    Box(Modifier.wrapContentWidth().testTag("chrome-tabs")) {
+                    Surface(shape = JournalShape.largeCard, color = colors.surface,
                         border = BorderStroke(Metric.border, colors.outline), shadowElevation = Metric.shadow) {
                         Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.Center) {
                             tabs.forEach { label ->
@@ -217,6 +232,7 @@ internal fun JournalChrome(
                             }
                         }
                     }
+                    }
                 }
             }
         }
@@ -228,10 +244,7 @@ private fun Modifier.islandTravel(travelPx: Int, alpha: Float, hidden: Boolean):
     .then(if (hidden) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier)
 
 private fun chromeConnection(driver: ChromeDriver) = object : NestedScrollConnection {
-    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-        if (source == NestedScrollSource.UserInput) driver.userGesture = true
-        return Offset.Zero
-    }
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset = Offset.Zero
     override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
         driver.onScroll(source, consumed, available)
         return Offset.Zero
@@ -253,6 +266,7 @@ internal class ChromeDriver(
     private val scope: CoroutineScope,
     private val durationMillis: Int,
 ) {
+    var pointerDown = false
     var userGesture = false
     var flinging = false
     var autoHide = true
@@ -260,7 +274,11 @@ internal class ChromeDriver(
 
     fun onScroll(source: NestedScrollSource, consumed: Offset, available: Offset) {
         if (!autoHide) return
-        val user = source == NestedScrollSource.UserInput
+        // Semantic ScrollBy is also UserInput in this Compose version. A finger is the pointer
+        // that is already down on the initial pass; everything else is programmatic.
+        if (source == NestedScrollSource.UserInput && !pointerDown) return
+        if (source == NestedScrollSource.UserInput) userGesture = true
+        val user = source == NestedScrollSource.UserInput && pointerDown
         val flingSample = source == NestedScrollSource.SideEffect && flinging && abs(consumed.y) >= model.slop / 2f
         val boundary = user || (source == NestedScrollSource.SideEffect && flinging)
         if (!user && !flingSample && !boundary) return
