@@ -302,27 +302,27 @@ class FloatingChromeTest {
                 }
             }
         }
-        rule.onNodeWithTag("feed").performTouchInput { swipeUp() }
+        swipeFeedUp()
         rule.waitForIdle()
         assertEquals(1f, progress(), 0.02f)
-        rule.onNodeWithTag("go-stats").performClick()
+        rule.onNodeWithTag("go-stats").performSemanticsAction(SemanticsActions.OnClick)
         rule.waitForIdle()
         assertEquals(0f, progress(), 0.02f)
         rule.onNode(tab and hasContentDescription("Статистика")).assertIsSelected()
         rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
         rule.onAllNodes(tab).assertCountEquals(3)
-        rule.onNodeWithTag("feed").performTouchInput { swipeUp() }
+        swipeFeedUp()
         rule.waitForIdle()
-        rule.onNodeWithTag("switch").performClick()
+        rule.onNodeWithTag("switch").performSemanticsAction(SemanticsActions.OnClick)
         rule.waitForIdle()
         rule.onNodeWithContentDescription("Назад").assertIsDisplayed()
         rule.onAllNodes(tab).assertCountEquals(0)
         assertEquals(0f, progress(), 0.02f)
-        rule.onNodeWithTag("switch").performClick()
+        rule.onNodeWithTag("switch").performSemanticsAction(SemanticsActions.OnClick)
         rule.waitForIdle()
+        assertEquals("islands stay visible after returning from the child", 0f, progress(), 0.02f)
         rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
         rule.onAllNodes(tab).assertCountEquals(3)
-        assertEquals(0f, progress(), 0.02f)
         rule.onNode(tab and hasContentDescription("Статистика")).assertIsSelected()
     }
 
@@ -425,6 +425,19 @@ class FloatingChromeTest {
         LazyColumn(Modifier.chromeScroll().fillMaxSize().testTag("feed"),
             contentPadding = PaddingValues(top = chrome.top, bottom = chrome.bottom)) {
             items(30) { index -> Text("Строка $index", Modifier.fillMaxWidth().height(56.dp).testTag("item-$index")) }
+        }
+    }
+
+    /**
+     * Scrolls the sample list without starting on the screen edge.
+     * performClick() in this Compose version injects a real touch, and a swipe that
+     * begins on the bottom edge is the system home gesture on gesture navigation.
+     * Either one can leave the host activity covered, after which assertIsDisplayed fails
+     * even though the node is still in the semantics tree.
+     */
+    private fun swipeFeedUp() {
+        rule.onNodeWithTag("feed").performTouchInput {
+            swipeUp(startY = centerY, endY = top + 1f)
         }
     }
 
