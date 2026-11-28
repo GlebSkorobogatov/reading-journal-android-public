@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import androidx.activity.BackEventCompat
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
@@ -35,12 +36,25 @@ class FloatingChromeShellTest {
         }
         rule.onNodeWithTag("reading-feed").performScrollToNode(hasTestTag("record-extra-12"))
         rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
-        rule.onNodeWithTag("reading-feed").performScrollToIndex(0)
-        rule.onNodeWithTag("reading-feed").performTouchInput { swipeUp() }
+        // ScrollToIndex(0) on API 26 left this list at the end. A swipe there is overscroll and
+        // must not hide the islands, so the return to the top is the same scroll used to reach the end.
+        rule.onNodeWithTag("reading-feed").performScrollToNode(hasTestTag("reading-subtitle"))
         rule.waitForIdle()
+        rule.onNodeWithTag("reading-subtitle").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
+        rule.onNodeWithTag("reading-feed").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, -520f))
+            up()
+        }
+        rule.waitForIdle()
+        val reading = runCatching {
+            rule.onNodeWithText("Не количество страниц, а глубина понимания.").assertExists()
+        }.isSuccess
+        org.junit.Assert.assertEquals("reading=$reading progress=${chromeProgress()}", 1f, chromeProgress(), 0.02f)
         rule.onNodeWithContentDescription("Настройки").assertDoesNotExist()
         rule.onNodeWithTag("reading-feed").performScrollToNode(hasTestTag("open-atlas"))
-        rule.onNodeWithTag("open-atlas").performClick()
+        rule.onNodeWithTag("open-atlas").performSemanticsAction(SemanticsActions.OnClick)
         rule.onNodeWithContentDescription("Назад").assertIsDisplayed()
         rule.onAllNodes(tab).assertCountEquals(0)
         rule.onNodeWithContentDescription("Назад").performClick()

@@ -335,15 +335,21 @@ internal class ChromeDriver(
         track.snap(progress.floatValue)
     }
 
+    private var restored = false
+    private var restoredWhileDown = false
     private var userGesture = false
     private var flinging = false
     private var awaitingEnd = false
     private var releaseToken = 0
+    private var gestureToken = 0
     private var epoch = 0
     private var job: Job? = null
 
     fun onPointerDown() {
+        restored = false
+        restoredWhileDown = false
         releaseToken++
+        gestureToken = releaseToken
         flinging = false
         awaitingEnd = true
         cancelSettle()
@@ -351,10 +357,13 @@ internal class ChromeDriver(
 
     fun onPointerUp() {
         val token = releaseToken
+        val vertical = userGesture
         scope.launch {
             // The scrollable dispatches its fling on this same turn, before the next resume.
             yield()
-            if (token != releaseToken || pointerDown || flinging || !awaitingEnd || !autoHide) return@launch
+            // A horizontal pager swipe also lifts the finger. Settling it would cancel the
+            // page-change show() and leave the islands hidden after the page has changed.
+            if (!vertical || token != releaseToken || pointerDown || flinging || !awaitingEnd || !autoHide) return@launch
             awaitingEnd = false
             settle()
         }
@@ -362,6 +371,12 @@ internal class ChromeDriver(
 
     fun onScroll(source: NestedScrollSource, consumed: Offset, available: Offset) {
         if (!autoHide) return
+        if (restored) {
+            // Suppress only the gesture that was already down when the page change asked
+            // the islands to return. The next finger has to be able to hide them again.
+            if (restoredWhileDown || !pointerDown) return
+            restored = false
+        }
         if (source == NestedScrollSource.UserInput && !pointerDown) return
         val user = source == NestedScrollSource.UserInput && pointerDown
         val flingSample = source == NestedScrollSource.SideEffect && flinging
@@ -395,13 +410,15 @@ internal class ChromeDriver(
 
     fun onPostFling() {
         // A new finger already down owns the progress; the fling that just ended must not pull it away.
-        val shouldSettle = awaitingEnd && autoHide && !pointerDown
+        // Only a vertical gesture settles. The pager's horizontal fling must not pull a restored island back off screen.
+        // show() advances releaseToken. A page change during this gesture must not be
+        // pulled back off screen by the fling that followed the finger.
+        val shouldSettle = awaitingEnd && autoHide && !pointerDown && userGesture &&
+            releaseToken == gestureToken
         flinging = false
         userGesture = false
-        if (shouldSettle) {
-            awaitingEnd = false
-            settle()
-        }
+        awaitingEnd = false
+        if (shouldSettle) settle()
     }
 
     fun snapVisible() {
@@ -415,6 +432,10 @@ internal class ChromeDriver(
     }
 
     fun show() {
+        // Samples from the gesture that changed the page keep arriving after the page settles.
+        // They must not cancel the return or push the islands back off screen.
+        restoredWhileDown = pointerDown
+        restored = true
         // A finished page change wins over a list fling that is still reporting samples.
         releaseToken++
         flinging = false

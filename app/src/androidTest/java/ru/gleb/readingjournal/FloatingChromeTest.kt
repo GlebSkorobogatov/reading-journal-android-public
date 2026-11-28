@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
@@ -179,7 +180,8 @@ class FloatingChromeTest {
             var extra by remember { mutableStateOf(false) }
             var shown by remember { mutableIntStateOf(0) }
             SamplePage {
-                Column(Modifier.fillMaxSize()) {
+                val chrome = LocalChromeObstruction.current
+                Column(Modifier.fillMaxSize().padding(top = chrome.top)) {
                     Text("Вниз", Modifier.testTag("jump").clickable {
                         scope.launch {
                             state.animateScrollTo(state.maxValue)
@@ -188,7 +190,7 @@ class FloatingChromeTest {
                     })
                     Text("Выше", Modifier.testTag("grow").clickable { extra = true })
                     Text(shown.toString(), Modifier.testTag("offset"))
-                    Column(Modifier.chromeScroll().weight(1f).verticalScroll(state).testTag("manual")) {
+                    Column(Modifier.chromeScroll().weight(1f).clipToBounds().verticalScroll(state).testTag("manual")) {
                         repeat(if (extra) 60 else 40) {
                             Text("Строка $it", Modifier.height(48.dp).testTag("row-$it"))
                         }
@@ -291,7 +293,10 @@ class FloatingChromeTest {
                         selectedTab = selected,
                         onTab = { selected = it },
                         content = {
-                            Column(Modifier.fillMaxSize()) {
+                            val chrome = LocalChromeObstruction.current
+                            // The title island is drawn above the page. A control at y = 0 sits under
+                            // it, so a real click lands on the island and the child never closes.
+                            Column(Modifier.fillMaxSize().padding(top = chrome.top)) {
                                 Text("К статистике", Modifier.testTag("go-stats").clickable { selected = "Статистика" })
                                 Text(if (child) "К списку" else "К книге",
                                     Modifier.testTag("switch").clickable { child = !child })
@@ -305,7 +310,7 @@ class FloatingChromeTest {
         swipeFeedUp()
         rule.waitForIdle()
         assertEquals(1f, progress(), 0.02f)
-        rule.onNodeWithTag("go-stats").performSemanticsAction(SemanticsActions.OnClick)
+        rule.onNodeWithTag("go-stats").performClick()
         rule.waitForIdle()
         assertEquals(0f, progress(), 0.02f)
         rule.onNode(tab and hasContentDescription("Статистика")).assertIsSelected()
@@ -313,12 +318,12 @@ class FloatingChromeTest {
         rule.onAllNodes(tab).assertCountEquals(3)
         swipeFeedUp()
         rule.waitForIdle()
-        rule.onNodeWithTag("switch").performSemanticsAction(SemanticsActions.OnClick)
+        rule.onNodeWithTag("switch").performClick()
         rule.waitForIdle()
         rule.onNodeWithContentDescription("Назад").assertIsDisplayed()
         rule.onAllNodes(tab).assertCountEquals(0)
         assertEquals(0f, progress(), 0.02f)
-        rule.onNodeWithTag("switch").performSemanticsAction(SemanticsActions.OnClick)
+        rule.onNodeWithTag("switch").performClick()
         rule.waitForIdle()
         assertEquals("islands stay visible after returning from the child", 0f, progress(), 0.02f)
         rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
@@ -429,11 +434,8 @@ class FloatingChromeTest {
     }
 
     /**
-     * Scrolls the sample list without starting on the screen edge.
-     * performClick() in this Compose version injects a real touch, and a swipe that
-     * begins on the bottom edge is the system home gesture on gesture navigation.
-     * Either one can leave the host activity covered, after which assertIsDisplayed fails
-     * even though the node is still in the semantics tree.
+     * User scroll from the middle of the list. The default swipe starts on the bottom edge,
+     * on the navigation island and, on gesture navigation, in the system home area.
      */
     private fun swipeFeedUp() {
         rule.onNodeWithTag("feed").performTouchInput {

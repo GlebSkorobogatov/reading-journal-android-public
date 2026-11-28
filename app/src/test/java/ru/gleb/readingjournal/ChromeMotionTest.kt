@@ -185,6 +185,30 @@ class ChromeMotionTest {
         }
     }
 
+    @Test fun aHorizontalReleaseDoesNotCancelThePageChangeShow() = runBlocking {
+        val clock = ManualFrameClock()
+        val scope = CoroutineScope(coroutineContext + Job(coroutineContext[Job]) + clock + ZeroMotion())
+        try {
+            val progress = mutableFloatStateOf(1f)
+            val driver = ChromeDriver(ChromeTrack(100f), progress, scope)
+            driver.pointerDown = true
+            driver.onPointerDown()
+            driver.onScroll(NestedScrollSource.UserInput, Offset(-80f, 0f), Offset.Zero)
+            driver.onPreFling()
+            driver.pointerDown = false
+            driver.onPointerUp()
+            driver.onPostFling()
+            driver.show()
+            repeat(3) {
+                clock.advance(16)
+                yield()
+            }
+            assertEquals(0f, progress.floatValue, 0.001f)
+        } finally {
+            scope.cancel()
+        }
+    }
+
     @Test fun navigationIslandPrefersSeventyTwoAndShrinksOnANarrowWindow() {
         assertEquals(72.dp, navigationSectorWidth(360.dp))
         assertEquals(72.dp, navigationSectorWidth(800.dp))

@@ -16,6 +16,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerSnapDistance
@@ -25,6 +26,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
@@ -45,6 +48,7 @@ import ru.gleb.readingjournal.demo.DemoScenario
 import ru.gleb.readingjournal.demo.ReadingDemoUi
 import ru.gleb.readingjournal.demo.ReadingDemoViewModel
 import ru.gleb.readingjournal.ui.overview.*
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.gleb.readingjournal.ui.designsystem.*
 
@@ -73,7 +77,7 @@ fun JournalApp(model: ShellViewModel = viewModel(), demo: ReadingDemoViewModel =
                 navigationBarStyle = if (dark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
                     else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT))
         }
-        JournalShell(state, model::selectTheme, overview, demo::onAction)
+        JournalShell(state, model::selectTheme, overview, demo::onAction, model)
     }
 }
 @Composable
@@ -82,6 +86,7 @@ private fun JournalShell(
     onTheme: (ThemeMode) -> Unit,
     overview: State<ReadingDemoUi>,
     onDemoAction: (DemoAction) -> Unit,
+    shell: ShellViewModel,
 ) {
     val nav = rememberNavController()
     Surface(Modifier.fillMaxSize().testTag("theme-${LocalJournalDark.current}"), color = LocalJournalColors.current.background) {
@@ -116,7 +121,7 @@ private fun JournalShell(
                     if (edge == BackEventCompat.EDGE_LEFT) it else -it
                 } else fadeOut(tween(Motion.transition))
             }) {
-            composable(RootRoute) { RootPager(nav, overview, onDemoAction) }
+            composable(RootRoute) { RootPager(nav, overview, onDemoAction, shell) }
             StatisticsDestination.entries.forEach { destination -> composable(destination.route) {
                 ShellPage(destination.title, onAction = { nav.popBackStack() }) {
                     val context = when (destination) {
@@ -197,7 +202,8 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.isSettingsReturn()
     initialState.destination.route == "Настройки" && targetState.destination.route == RootRoute
 
 /**
- * One chrome and one pager. [PagerState] is the only selected-tab state.
+ * One chrome and one pager. The pager still performs the gesture. [ShellViewModel.rootPage] is the
+ * copy that survives a configuration change whose instance bundle was saved too early.
  * Scroll positions live beside the pager, so leaving a page or opening a child does not drop them.
  * HorizontalPager performs the gesture; a child that can scroll horizontally still receives it first.
  */
@@ -206,8 +212,35 @@ private fun RootPager(
     nav: androidx.navigation.NavHostController,
     overview: State<ReadingDemoUi>,
     onDemoAction: (DemoAction) -> Unit,
+    shell: ShellViewModel,
 ) {
-    val pager = rememberPagerState { RootTab.entries.size }
+    val pager = rememberPagerState(initialPage = shell.rootPage.coerceIn(0, RootTab.entries.lastIndex)) {
+        RootTab.entries.size
+    }
+    val configuration = LocalConfiguration.current
+    val configurationToken = configuration.orientation to configuration.fontScale
+    LaunchedEffect(pager) {
+        pager.interactionSource.interactions.collect { interaction ->
+            if (interaction is DragInteraction.Stop || interaction is DragInteraction.Cancel) {
+                snapshotFlow { pager.isScrollInProgress }.first { !it }
+                shell.rootPage = pager.currentPage
+            }
+        }
+    }
+    // For a short time after a configuration change, put the pager back on the idle page.
+    // The restored pager can otherwise settle on the page it was crossing. A finger drag
+    // updates the saved page first, so this does not undo a swipe once the drag has finished.
+    LaunchedEffect(configurationToken) {
+        repeat(45) {
+            val target = shell.rootPage.coerceIn(0, RootTab.entries.lastIndex)
+            if (!pager.isScrollInProgress &&
+                (pager.currentPage != target || pager.settledPage != target)
+            ) {
+                pager.scrollToPage(target)
+            }
+            withFrameNanos { }
+        }
+    }
     val scope = rememberCoroutineScope()
     val readingScroll = rememberLazyListState()
     val statisticsScroll = rememberScrollState()
@@ -221,6 +254,7 @@ private fun RootPager(
     val settled by remember { derivedStateOf { pager.settledPage.coerceIn(0, RootTab.entries.lastIndex) } }
     val position by remember { derivedStateOf { pager.currentPage + pager.currentPageOffsetFraction } }
     BackHandler(awayFromStart) {
+        shell.rootPage = 0
         scope.launch { pager.animateScrollToPage(0, animationSpec = pageSpring) }
     }
     ShellPage(
@@ -228,7 +262,10 @@ private fun RootPager(
         onAction = { nav.navigate("Настройки") { launchSingleTop = true } },
         onTab = { label ->
             val target = RootTab.entries.indexOfFirst { it.title == label }
-            if (target >= 0) scope.launch { pager.animateScrollToPage(target, animationSpec = pageSpring) }
+            if (target >= 0) {
+                shell.rootPage = target
+                scope.launch { pager.animateScrollToPage(target, animationSpec = pageSpring) }
+            }
         },
         selection = position,
         settledTab = RootTab.entries[settled].title,

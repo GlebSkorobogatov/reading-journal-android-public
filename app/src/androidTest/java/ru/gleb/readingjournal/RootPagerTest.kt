@@ -184,7 +184,20 @@ class RootPagerTest {
     }
 
     @Test fun aHorizontalSwipeStillChangesPageAfterTheIslandsHide() {
-        rule.onNodeWithTag("reading-feed").performTouchInput { swipeUp() }
+        // Three default cards can sit inside the API 26 viewport. A swipe that cannot move the
+        // list settles back to a visible island, so the page change is never reached.
+        rule.runOnIdle {
+            ViewModelProvider(rule.activity)[ReadingDemoViewModel::class.java]
+                .onAction(DemoAction.SelectScenario(DemoScenario.MANY))
+        }
+        rule.onNodeWithTag("reading-subtitle").assertIsDisplayed()
+        // swipeUp() from the feed edge also turns the pager on API 26, and the page change
+        // shows the islands again. A vertical drag hides without leaving the page.
+        rule.onNodeWithTag("reading-feed").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, -520f))
+            up()
+        }
         rule.waitForIdle()
         assertEquals(1f, progress(), 0.02f)
         rule.onNodeWithContentDescription("Настройки").assertDoesNotExist()

@@ -2,6 +2,7 @@ package ru.gleb.readingjournal
 
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
@@ -17,7 +18,12 @@ class LifecycleLayoutTest {
         val originalScale = rule.activity.resources.configuration.fontScale
         val originalOrientation = rule.activity.resources.configuration.orientation
         try {
-            rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).performClick()
+            // A real touch on the tab can also drag the pager and finish on the page it crossed.
+            // The selection itself is the click action; the configuration change is what this test owns.
+            rule.onNode(hasContentDescription("Библиотека") and hasClickAction())
+                .performSemanticsAction(SemanticsActions.OnClick)
+            rule.waitForIdle()
+            rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).assertIsSelected()
             rule.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
             rule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
             rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
