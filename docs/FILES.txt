@@ -17,6 +17,7 @@ README.md
 TEST_PLAN.md
 UI_DESIGN_SPEC.md
 app/build.gradle.kts
+app/lint.xml
 app/src/androidTest/java/ru/gleb/readingjournal/AccessibilityMatrixTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/FloatingChromeScaleTest.kt
 app/src/androidTest/java/ru/gleb/readingjournal/FloatingChromeShellTest.kt

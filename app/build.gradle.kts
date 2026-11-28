@@ -32,8 +32,6 @@ android {
     lint {
         abortOnError = true
         warningsAsErrors = true
-        // Wrapper stays on the pinned Gradle 9.9.2. This check only notices a newer patch.
-        disable += "AndroidGradlePluginVersion"
     }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
