@@ -25,8 +25,9 @@ fun CurrentlyReading(
     onTogglePin: (BookId) -> Unit,
     onMovePin: (BookId, Direction) -> Unit,
 ) {
-    LazyColumn(Modifier.fillMaxSize().testTag("reading-feed"), state = scroll,
-        contentPadding = PaddingValues(start = Space.lg, end = Space.lg, top = Space.sm, bottom = Space.lg),
+    val chrome = LocalChromeObstruction.current
+    LazyColumn(Modifier.chromeScroll().fillMaxSize().testTag("reading-feed"), state = scroll,
+        contentPadding = PaddingValues(start = Space.lg, end = Space.lg, top = chrome.top, bottom = chrome.bottom),
         verticalArrangement = Arrangement.spacedBy(Space.md)) {
         item(key = "subtitle") {
             Text(ReadingSubtitle, Modifier.testTag("reading-subtitle"), style = JournalType.secondary,

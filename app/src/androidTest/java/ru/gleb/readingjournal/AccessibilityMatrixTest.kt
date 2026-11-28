@@ -21,7 +21,7 @@ class AccessibilityMatrixTest {
                 for (fontScale in listOf(1f, 1.3f, 1.5f, 2f)) {
                     systemFontScale(fontScale)
                     rule.waitUntil(30_000) { abs(rule.activity.resources.configuration.fontScale - fontScale) < 0.01f }
-                    rule.onNode(hasText("Библиотека") and hasClickAction()).performClick()
+                    rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).performClick()
                     rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
                     rule.onNodeWithContentDescription("Настройки").performClick()
                     rule.onNode(hasText(theme.label, substring = true) and hasClickAction()).performScrollTo().performClick()
@@ -33,7 +33,7 @@ class AccessibilityMatrixTest {
                     rule.onNodeWithText("Закрыть").performClick()
                     rule.onNodeWithContentDescription("Назад").performClick()
                     rule.onNodeWithContentDescription("Назад").performClick()
-                    rule.onNode(hasText("Читаю сейчас") and hasClickAction()).performClick()
+                    rule.onNode(hasContentDescription("Читаю сейчас") and hasClickAction()).performClick()
                 }
             }
         } finally {

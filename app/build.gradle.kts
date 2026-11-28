@@ -19,8 +19,8 @@ android {
         applicationId = "ru.gleb.readingjournal"
         minSdk = 26
         targetSdk = 37
-        versionCode = 5
-        versionName = "0.2.0-rev02"
+        versionCode = 7
+        versionName = "0.2.1-motion"
         buildConfigField("String", "SOURCE_SHA", "\"${sourceSha.get()}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -29,7 +29,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    lint { abortOnError = true; warningsAsErrors = true }
+    lint {
+        abortOnError = true
+        warningsAsErrors = true
+    }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 dependencies {

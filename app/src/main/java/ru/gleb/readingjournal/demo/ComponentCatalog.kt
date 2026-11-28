@@ -35,8 +35,10 @@ fun ComponentCatalog() {
     var selected by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf(false) }
     var sheet by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().navigationBarsPadding().verticalScroll(rememberScrollState())
-        .padding(Space.lg), verticalArrangement = Arrangement.spacedBy(Space.lg)) {
+    val chrome = LocalChromeObstruction.current
+    Column(Modifier.chromeScroll().fillMaxSize().verticalScroll(rememberScrollState())
+        .padding(start = Space.lg, end = Space.lg, bottom = chrome.bottom + Space.lg, top = chrome.top + Space.lg),
+        verticalArrangement = Arrangement.spacedBy(Space.lg)) {
         Text("Каталог UI-01 · только демонстрация", Modifier.semantics { heading() }, style = JournalType.screen)
         Text("Офлайн-компоненты. Нажатия не изменяют книги или пользовательские данные.")
         JournalCard {

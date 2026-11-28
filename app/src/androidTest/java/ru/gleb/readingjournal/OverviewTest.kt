@@ -23,10 +23,11 @@ class OverviewTest {
         rule.onAllNodes(tab).assertCountEquals(3)
         val tabs = rule.onAllNodes(tab).fetchSemanticsNodes().sortedBy { it.boundsInRoot.left }
         assertEquals(listOf("Читаю сейчас", "Статистика", "Библиотека"),
-            tabs.map { it.config[SemanticsProperties.Text].single().text })
-        rule.onNode(tab and hasText("Читаю сейчас")).assertIsSelected()
-        rule.onNodeWithTag("xp-card").assertDoesNotExist()
-        rule.onNodeWithTag("overview-metrics").assertDoesNotExist()
+            tabs.map { it.config[SemanticsProperties.ContentDescription].single() })
+        rule.onNode(tab and hasContentDescription("Читаю сейчас")).assertIsSelected()
+        // The next page stays composed beside the viewport. It must not be on the reading screen.
+        rule.onNodeWithTag("xp-card").assertIsNotDisplayed()
+        rule.onNodeWithTag("overview-metrics").assertIsNotDisplayed()
         rule.onNodeWithTag("record-atlas").showBookPart("record-atlas").performClick()
         rule.onNodeWithText("Атлас тихих открытий").assertIsDisplayed()
         rule.onNodeWithText("Записать чтение").assertIsDisplayed()
@@ -94,7 +95,7 @@ class OverviewTest {
             rule.onNodeWithTag("selected-period").assertTextEquals("Всё время")
         }
         back()
-        rule.onNode(tab and hasText("Читаю сейчас")).assertIsSelected()
+        rule.onNode(tab and hasContentDescription("Читаю сейчас")).assertIsSelected()
         select("Статистика")
         rule.onNodeWithTag("selected-period").assertTextEquals("Всё время")
         for (period in listOf("Год", "90 дней", "30 дней", "7 дней", "Сегодня")) {
@@ -143,7 +144,7 @@ class OverviewTest {
     private fun demo(scenario: DemoScenario) {
         rule.runOnIdle { model().onAction(DemoAction.SelectScenario(scenario)) }
     }
-    private fun select(label: String) = rule.onNode(tab and hasText(label)).performClick()
+    private fun select(label: String) = rule.onNode(tab and hasContentDescription(label)).performClick()
     private fun step(direction: String) = rule.onNodeWithTag("period-$direction").performScrollTo().performClick()
     private fun back() = rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
 }

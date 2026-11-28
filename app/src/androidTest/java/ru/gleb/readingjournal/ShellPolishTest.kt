@@ -22,21 +22,21 @@ class ShellPolishTest {
             rule.onNodeWithContentDescription("Настройки").performClick()
             rule.onNodeWithText(theme).performClick()
             rule.onNodeWithContentDescription("Назад").performClick()
-            rule.onNode(hasText("Библиотека") and hasClickAction()).performClick()
+            rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).performClick()
             rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
             assertPlaceholderCentered("Library/$theme")
             rule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
-            rule.onNode(hasText("Библиотека") and hasClickAction()).assertIsSelected()
+            rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).assertIsSelected()
             screenshot("polish-$theme-library")
 
             // The two live roots replaced their UI-01 placeholders. Their child stubs
             // still use the same centering contract, with a system inset at the bottom.
-            rule.onNode(hasText("Читаю сейчас") and hasClickAction()).performClick()
+            rule.onNode(hasContentDescription("Читаю сейчас") and hasClickAction()).performClick()
             rule.onNodeWithTag("reading-feed").performScrollToNode(hasTestTag("open-atlas"))
             rule.onNodeWithTag("open-atlas").performClick()
             assertPlaceholderCentered("Book/$theme")
             rule.onNodeWithContentDescription("Назад").performClick()
-            rule.onNode(hasText("Статистика") and hasClickAction()).performClick()
+            rule.onNode(hasContentDescription("Статистика") and hasClickAction()).performClick()
             rule.onNodeWithTag("xp-card").performClick()
             assertPlaceholderCentered("Achievements/$theme")
             rule.onNodeWithContentDescription("Назад").performClick()
@@ -50,7 +50,7 @@ class ShellPolishTest {
     }
 
     @Test fun predictiveSettingsBackDoesNotScaleAndSupportsCancelAndCommit() {
-        rule.onNode(hasText("Библиотека") and hasClickAction()).performClick()
+        rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).performClick()
         for (edge in listOf(BackEventCompat.EDGE_LEFT, BackEventCompat.EDGE_RIGHT)) {
             rule.onNodeWithContentDescription("Настройки").performClick()
             rule.onNodeWithText("Тема").assertIsDisplayed()
@@ -74,7 +74,7 @@ class ShellPolishTest {
             startBack(0.75f, edge)
             rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
             rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
-            rule.onNode(hasText("Библиотека") and hasClickAction()).assertIsSelected()
+            rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).assertIsSelected()
             rule.onNodeWithTag("settings-content").assertDoesNotExist()
             screenshot("polish-settings-back-complete-$edge")
         }

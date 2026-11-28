@@ -39,13 +39,16 @@ fun LineIcon(name: String) {
                     moveTo(18f, 16f); lineTo(18f, 5f)
                 }, color, style = outline)
                 "Библиотека" -> {
-                    // Upright book spines and a leaning volume: a collection, not a single page.
-                    listOf(4f, 8f, 12f).forEach { x ->
-                        drawLine(color, Offset(x, if (x == 12f) 3f else 5f), Offset(x, 20f),
-                            strokeWidth = 1.5f, cap = StrokeCap.Round)
+                    val pages = Stroke(1.15f, cap = StrokeCap.Round)
+                    libraryBooks().forEach { book ->
+                        // Open at the right: the fore-edge faces the viewer. The left curve is the binding.
+                        // The shorter inner lines are the page block, inset so the cover sticks out past them.
+                        drawPath(libraryCover(book), color, style = outline)
+                        book.pageYs.forEach { y ->
+                            drawLine(color, Offset(book.pageLeft, y), Offset(book.pageRight, y),
+                                strokeWidth = pages.width, cap = StrokeCap.Round)
+                        }
                     }
-                    drawLine(color, Offset(16f, 4f), Offset(20f, 20f),
-                        strokeWidth = 1.5f, cap = StrokeCap.Round)
                 }
                 "Вперёд", "Предыдущий период", "Следующий период" -> {
                     val backward = name == "Предыдущий период"
@@ -81,3 +84,38 @@ fun LineIcon(name: String) {
         }
     }
 }
+
+/**
+ * One book lying with its page edges toward the viewer.
+ * [left] is the binding shoulder. [spine] is how far the binding curve's control point
+ * sits to the left of that shoulder. The cover is open on the right; [pageLeft]..[pageRight]
+ * is the page block, inset so both cover boards stick out past it.
+ */
+internal data class LibraryBook(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float,
+    val spine: Float,
+    val pageLeft: Float,
+    val pageRight: Float,
+) {
+    val width: Float get() = right - left
+    val height: Float get() = bottom - top
+    val pageYs: List<Float> get() = listOf(top + height * 0.36f, top + height * 0.66f)
+}
+
+internal fun libraryCover(book: LibraryBook): Path = Path().apply {
+    val shoulder = book.left + 1.6f
+    val mid = (book.top + book.bottom) / 2f
+    moveTo(book.right, book.top)
+    lineTo(shoulder, book.top)
+    quadraticTo(book.left - book.spine, mid, shoulder, book.bottom)
+    lineTo(book.right - 0.45f, book.bottom)
+}
+
+internal fun libraryBooks(): List<LibraryBook> = listOf(
+    LibraryBook(7.2f, 0.9f, 22.4f, 6.7f, spine = 1.7f, pageLeft = 10.5f, pageRight = 20.0f),
+    LibraryBook(1.6f, 9.2f, 17.0f, 15.0f, spine = 1.15f, pageLeft = 4.9f, pageRight = 14.5f),
+    LibraryBook(4.4f, 17.5f, 21.6f, 22.85f, spine = 1.7f, pageLeft = 7.7f, pageRight = 19.1f),
+)

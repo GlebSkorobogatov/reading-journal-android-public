@@ -29,7 +29,9 @@ fun StatisticsOverview(
     onStepPeriod: (Direction) -> Unit,
     onOpen: (StatisticsDestination) -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().testTag("statistics-feed").verticalScroll(scroll).padding(Space.lg),
+    val chrome = LocalChromeObstruction.current
+    Column(Modifier.chromeScroll().fillMaxSize().testTag("statistics-feed").verticalScroll(scroll)
+        .padding(start = Space.lg, end = Space.lg, bottom = chrome.bottom, top = chrome.top + Space.lg),
         verticalArrangement = Arrangement.spacedBy(Space.md)) {
         CompactXp(state.xp) { onOpen(StatisticsDestination.ACHIEVEMENTS) }
         OverviewMetrics(state.snapshot, state.streak)
