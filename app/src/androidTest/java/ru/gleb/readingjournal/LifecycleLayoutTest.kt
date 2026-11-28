@@ -53,6 +53,68 @@ class LifecycleLayoutTest {
             }
         }
     }
+    @Test fun orientationThenFontScaleThenTheReverseKeepsTheSelectedTab() {
+        val originalScale = rule.activity.resources.configuration.fontScale
+        val originalOrientation = rule.activity.resources.configuration.orientation
+        try {
+            selectLibrary()
+            rotate(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+            assertLibrary()
+            command("settings put system font_scale 1.5")
+            waitFor(Configuration.ORIENTATION_LANDSCAPE, 1.45f)
+            assertLibrary()
+            rotate(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+            command("settings put system font_scale 2.0")
+            waitFor(Configuration.ORIENTATION_PORTRAIT, 1.99f)
+            assertLibrary()
+            rule.onNodeWithContentDescription("Настройки").performClick()
+            rule.onNodeWithText("Тема").assertIsDisplayed()
+            rule.onNodeWithContentDescription("Назад").performClick()
+            assertLibrary()
+        } finally {
+            command("settings put system font_scale $originalScale")
+            rotate(if (originalOrientation == Configuration.ORIENTATION_LANDSCAPE)
+                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+            rule.waitUntil(30_000) {
+                val config = rule.activity.resources.configuration
+                kotlin.math.abs(config.fontScale - originalScale) < 0.01f &&
+                    config.orientation == originalOrientation
+            }
+        }
+    }
+
+    @Test fun recreationKeepsTheLibraryTab() {
+        selectLibrary()
+        rule.activityRule.scenario.recreate()
+        assertLibrary()
+    }
+
+    private fun selectLibrary() {
+        rule.onNode(hasContentDescription("Библиотека") and hasClickAction())
+            .performSemanticsAction(SemanticsActions.OnClick)
+        rule.waitForIdle()
+        assertLibrary()
+    }
+
+    private fun assertLibrary() {
+        rule.onNode(hasContentDescription("Библиотека") and hasClickAction()).assertIsSelected()
+        rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
+    }
+
+    private fun rotate(orientation: Int) {
+        rule.runOnUiThread { rule.activity.requestedOrientation = orientation }
+        val expected = if (orientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+            Configuration.ORIENTATION_LANDSCAPE else Configuration.ORIENTATION_PORTRAIT
+        rule.waitUntil(30_000) { rule.activity.resources.configuration.orientation == expected }
+    }
+
+    private fun waitFor(orientation: Int, minimumScale: Float) {
+        rule.waitUntil(30_000) {
+            val config = rule.activity.resources.configuration
+            config.orientation == orientation && config.fontScale >= minimumScale
+        }
+    }
+
     private fun command(command: String) {
         val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
         FileInputStream(descriptor.fileDescriptor).use { it.readBytes() }

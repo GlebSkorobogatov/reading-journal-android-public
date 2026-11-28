@@ -30,4 +30,9 @@ class ShellStateTest {
         first.rootPage = 2
         assertEquals(2, ShellViewModel(saved).rootPage)
     }
+
+    @Test fun aSettledGestureStoresItsPageUntilANewerChoiceExists() {
+        assertEquals(1, rootPageCommittedByGesture(0, 0, settledPage = 1, chosenPage = 0))
+        assertEquals(2, rootPageCommittedByGesture(0, 1, settledPage = 1, chosenPage = 2))
+    }
 }

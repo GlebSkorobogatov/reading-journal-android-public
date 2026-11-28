@@ -18,10 +18,9 @@ class ShellViewModel(private val saved: SavedStateHandle) : ViewModel() {
     fun selectTheme(theme: ThemeMode) { mutableState.value = mutableState.value.copy(theme = theme) }
 
     /**
-     * Selected root page. [androidx.compose.foundation.pager.rememberPagerState] also writes the
-     * page into the instance bundle, but a second configuration change can save that bundle before
-     * the restored page is applied, so the next activity comes back on «Читаю сейчас».
-     * This handle is already in memory, so the later save keeps the page the reader actually left.
+     * The selected root page. This is the value the pager is created from. The pager's own saver
+     * is not used: it also stores a fractional offset, and a second configuration change can save
+     * that pair before the page has settled.
      */
     var rootPage: Int
         get() = saved[ROOT_PAGE] ?: 0

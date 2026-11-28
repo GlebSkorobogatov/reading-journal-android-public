@@ -20,14 +20,13 @@ import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerSnapDistance
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
@@ -202,8 +201,12 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.isSettingsReturn()
     initialState.destination.route == "Настройки" && targetState.destination.route == RootRoute
 
 /**
- * One chrome and one pager. The pager still performs the gesture. [ShellViewModel.rootPage] is the
- * copy that survives a configuration change whose instance bundle was saved too early.
+ * One chrome and one pager. The pager still performs the gesture. The selected page is kept in
+ * [ShellViewModel.rootPage], not in the pager's own saver: that saver also stores the fractional
+ * offset, and a second configuration change can persist the pair before it has settled, so the
+ * next layout snaps onto the neighbouring page. The pager is created on the saved page with no
+ * offset, and a later gesture moves it from there. A tab or Back stores its page before the
+ * animation, so a finger that is still settling cannot put the previous page back.
  * Scroll positions live beside the pager, so leaving a page or opening a child does not drop them.
  * HorizontalPager performs the gesture; a child that can scroll horizontally still receives it first.
  */
@@ -214,31 +217,26 @@ private fun RootPager(
     onDemoAction: (DemoAction) -> Unit,
     shell: ShellViewModel,
 ) {
-    val pager = rememberPagerState(initialPage = shell.rootPage.coerceIn(0, RootTab.entries.lastIndex)) {
-        RootTab.entries.size
+    val pageCount = RootTab.entries.size
+    val pager = remember {
+        RootPagerState(shell.rootPage.coerceIn(0, pageCount - 1)) { pageCount }
     }
-    val configuration = LocalConfiguration.current
-    val configurationToken = configuration.orientation to configuration.fontScale
+    // A tab or Back chooses the page immediately. The settling finger must not write the page it
+    // was leaving over that choice. The epoch is not a clock: it only orders those two writers.
+    val choiceEpoch = remember { intArrayOf(0) }
+    fun choosePage(page: Int) {
+        choiceEpoch[0] = choiceEpoch[0] + 1
+        shell.rootPage = page
+    }
     LaunchedEffect(pager) {
         pager.interactionSource.interactions.collect { interaction ->
             if (interaction is DragInteraction.Stop || interaction is DragInteraction.Cancel) {
+                val epoch = choiceEpoch[0]
                 snapshotFlow { pager.isScrollInProgress }.first { !it }
-                shell.rootPage = pager.currentPage
+                shell.rootPage = rootPageCommittedByGesture(
+                    epoch, choiceEpoch[0], pager.currentPage, shell.rootPage,
+                )
             }
-        }
-    }
-    // For a short time after a configuration change, put the pager back on the idle page.
-    // The restored pager can otherwise settle on the page it was crossing. A finger drag
-    // updates the saved page first, so this does not undo a swipe once the drag has finished.
-    LaunchedEffect(configurationToken) {
-        repeat(45) {
-            val target = shell.rootPage.coerceIn(0, RootTab.entries.lastIndex)
-            if (!pager.isScrollInProgress &&
-                (pager.currentPage != target || pager.settledPage != target)
-            ) {
-                pager.scrollToPage(target)
-            }
-            withFrameNanos { }
         }
     }
     val scope = rememberCoroutineScope()
@@ -254,7 +252,7 @@ private fun RootPager(
     val settled by remember { derivedStateOf { pager.settledPage.coerceIn(0, RootTab.entries.lastIndex) } }
     val position by remember { derivedStateOf { pager.currentPage + pager.currentPageOffsetFraction } }
     BackHandler(awayFromStart) {
-        shell.rootPage = 0
+        choosePage(0)
         scope.launch { pager.animateScrollToPage(0, animationSpec = pageSpring) }
     }
     ShellPage(
@@ -263,7 +261,7 @@ private fun RootPager(
         onTab = { label ->
             val target = RootTab.entries.indexOfFirst { it.title == label }
             if (target >= 0) {
-                shell.rootPage = target
+                choosePage(target)
                 scope.launch { pager.animateScrollToPage(target, animationSpec = pageSpring) }
             }
         },
@@ -336,3 +334,29 @@ private fun FuturePage(title: String, context: String? = null) {
         }
     }
 }
+
+/**
+ * A pager that is not saved by itself. [ShellViewModel.rootPage] is the selected page, and this
+ * state is created there with a zero offset so a configuration change cannot snap to a neighbour.
+ * [pageCount] is snapshot state, the same contract as the foundation pager: a plain getter would
+ * not be observed when the layout measures.
+ */
+private class RootPagerState(
+    initialPage: Int,
+    pageCount: () -> Int,
+) : PagerState(initialPage, 0f) {
+    private val pageCountState = mutableStateOf(pageCount)
+    override val pageCount: Int get() = pageCountState.value.invoke()
+}
+
+/**
+ * The page a released finger may store. A tab or Back that happened while the finger was settling
+ * already stored its own page, and that choice wins. Otherwise the page the pager settled on is
+ * the new one.
+ */
+internal fun rootPageCommittedByGesture(
+    epochAtRelease: Int,
+    epochNow: Int,
+    settledPage: Int,
+    chosenPage: Int,
+): Int = if (epochAtRelease == epochNow) settledPage else chosenPage

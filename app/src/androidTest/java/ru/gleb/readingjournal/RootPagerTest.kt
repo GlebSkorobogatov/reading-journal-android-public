@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
@@ -20,6 +21,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
@@ -88,6 +90,74 @@ class RootPagerTest {
         rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
         rule.onNode(tab and hasContentDescription("Библиотека")).assertIsSelected()
         rule.onAllNodesWithTag("chrome-tabs").assertCountEquals(1)
+    }
+
+    @Test fun rapidTabChoicesRestoreTheLastOne() {
+        choose("Библиотека")
+        choose("Читаю сейчас")
+        choose("Статистика")
+        rule.waitForIdle()
+        rule.onNodeWithTag("xp-card").assertIsDisplayed()
+        rule.onNode(tab and hasContentDescription("Статистика")).assertIsSelected()
+        rule.activityRule.scenario.recreate()
+        rule.onNode(tab and hasContentDescription("Статистика")).assertIsSelected()
+    }
+
+    @Test fun anInterruptedTabAnimationRestoresTheChosenTab() {
+        rule.mainClock.autoAdvance = false
+        choose("Библиотека")
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(80)
+        rule.mainClock.autoAdvance = true
+        rule.activityRule.scenario.recreate()
+        rule.waitForIdle()
+        rule.onNode(tab and hasContentDescription("Библиотека")).assertIsSelected()
+        rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
+    }
+
+    @Test fun aCancelledSwipeRestoresThePageItStartedOn() {
+        rule.onNodeWithTag("reading-feed").performTouchInput {
+            swipeLeft(startX = right * 0.75f, endX = right * 0.55f, durationMillis = 800)
+        }
+        rule.waitForIdle()
+        rule.onNode(tab and hasContentDescription("Читаю сейчас")).assertIsSelected()
+        rule.activityRule.scenario.recreate()
+        rule.onNode(tab and hasContentDescription("Читаю сейчас")).assertIsSelected()
+        rule.onNodeWithText("Не количество страниц, а глубина понимания.").assertIsDisplayed()
+    }
+
+    @Test fun aTabChoiceDuringASettlingSwipeRestoresTheChosenTab() {
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("reading-feed").performTouchInput {
+            swipeLeft(durationMillis = 50)
+        }
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(40)
+        choose("Библиотека")
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(40)
+        rule.activityRule.scenario.recreate()
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        rule.onNode(tab and hasContentDescription("Библиотека")).assertIsSelected()
+        rule.onNodeWithText("Библиотека · UI-03").assertIsDisplayed()
+    }
+
+    @Test fun aSettledSwipeSurvivesRecreationAndTheNextGesture() {
+        choose("Библиотека")
+        rule.waitForIdle()
+        rule.activityRule.scenario.recreate()
+        rule.onNode(tab and hasContentDescription("Библиотека")).assertIsSelected()
+        rule.onNodeWithTag("placeholder-viewport").performTouchInput { swipeRight() }
+        rule.waitForIdle()
+        rule.onNodeWithTag("xp-card").assertIsDisplayed()
+        rule.onNode(tab and hasContentDescription("Статистика")).assertIsSelected()
+        rule.activityRule.scenario.recreate()
+        rule.onNode(tab and hasContentDescription("Статистика")).assertIsSelected()
+    }
+
+    private fun choose(label: String) {
+        rule.onNode(tab and hasContentDescription(label)).performSemanticsAction(SemanticsActions.OnClick)
     }
 
     @Test fun iconTapsSlideAndBackReturnsToTheFirstPage() {
