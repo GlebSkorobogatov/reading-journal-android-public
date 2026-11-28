@@ -17,6 +17,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerSnapDistance
@@ -29,6 +30,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.Modifier
 import androidx.activity.compose.LocalActivity
 import androidx.compose.ui.platform.testTag
@@ -280,22 +282,29 @@ private fun RootPager(
             ),
             key = { RootTab.entries[it].route },
         ) { page ->
-            when (RootTab.entries[page]) {
-                RootTab.READING -> CurrentlyReading(
-                    overview.value.reading, readingScroll,
-                    onOpenBook = { bookId -> nav.navigate(bookPath(bookId)) { launchSingleTop = true } },
-                    onRecord = { bookId, cycleId ->
-                        nav.navigate(recordPath(bookId, cycleId)) { launchSingleTop = true }
-                    },
-                    onTogglePin = { onDemoAction(DemoAction.TogglePin(it)) },
-                    onMovePin = { bookId, direction -> onDemoAction(DemoAction.MovePin(bookId, direction)) },
-                )
-                RootTab.STATISTICS -> StatisticsOverview(
-                    overview.value.statistics, statisticsScroll,
-                    onStepPeriod = { onDemoAction(DemoAction.StepPeriod(it)) },
-                    onOpen = { nav.navigate(it.route) { launchSingleTop = true } },
-                )
-                RootTab.LIBRARY -> FuturePage("Библиотека · UI-03")
+            // Android can restore default input focus while this pager still has neighbours
+            // composed outside the viewport. Focusing one would scroll it into view and replace
+            // the selected tab, even though SavedStateHandle restored the correct page.
+            Box(Modifier.fillMaxSize().focusProperties {
+                onEnter = { if (page != pager.currentPage) cancelFocusChange() }
+            }.focusGroup()) {
+                when (RootTab.entries[page]) {
+                    RootTab.READING -> CurrentlyReading(
+                        overview.value.reading, readingScroll,
+                        onOpenBook = { bookId -> nav.navigate(bookPath(bookId)) { launchSingleTop = true } },
+                        onRecord = { bookId, cycleId ->
+                            nav.navigate(recordPath(bookId, cycleId)) { launchSingleTop = true }
+                        },
+                        onTogglePin = { onDemoAction(DemoAction.TogglePin(it)) },
+                        onMovePin = { bookId, direction -> onDemoAction(DemoAction.MovePin(bookId, direction)) },
+                    )
+                    RootTab.STATISTICS -> StatisticsOverview(
+                        overview.value.statistics, statisticsScroll,
+                        onStepPeriod = { onDemoAction(DemoAction.StepPeriod(it)) },
+                        onOpen = { nav.navigate(it.route) { launchSingleTop = true } },
+                    )
+                    RootTab.LIBRARY -> FuturePage("Библиотека · UI-03")
+                }
             }
         }
     }

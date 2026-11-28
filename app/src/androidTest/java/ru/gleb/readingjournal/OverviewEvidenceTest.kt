@@ -4,7 +4,6 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.Build
-import android.os.SystemClock
 import android.util.Log
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -252,20 +251,39 @@ class OverviewEvidenceTest {
     }
 
     private fun capture(name: String, mode: ThemeMode) {
-        rule.mainClock.advanceTimeBy(600)
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val automation = instrumentation.uiAutomation
+        val appPackage = instrumentation.targetContext.packageName
+        var activeWindow = "none"
+        // A displayed Activity can lack input focus. The active, visible accessibility window
+        // identifies the app on the display that UiAutomation is about to capture.
+        try {
+            rule.waitUntil(15_000) {
+                val root = automation.rootInActiveWindow
+                activeWindow = "${root?.packageName} (visible=${root?.isVisibleToUser})"
+                root?.packageName == appPackage && root.isVisibleToUser
+            }
+        } catch (error: androidx.compose.ui.test.ComposeTimeoutException) {
+            val focus = command("dumpsys window displays").lineSequence()
+                .filter { it.contains("mCurrentFocus") || it.contains("mFocusedApp") }
+                .joinToString()
+            throw AssertionError("Capture $name: expected $appPackage, active window=$activeWindow. $focus", error)
+        }
+        // Compose waits for the scheduled draw as well as composition and animations.
         rule.waitForIdle()
-        // Wait for the activity's native window to own focus after rotation/navigation.
-        rule.waitUntil(15_000) { rule.runOnUiThread { rule.activity.hasWindowFocus() } }
-        SystemClock.sleep(300)
-        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        val image = requireNotNull(automation.takeScreenshot())
         val context = rule.activity
         val configuration = context.resources.configuration
         assertTrue("Evidence contains an invalid source SHA", BuildConfig.SOURCE_SHA.matches(Regex("[0-9a-f]{40}")))
         val directory = File(context.filesDir, "screenshots")
         directory.mkdirs()
         val filename = "rev02-${BuildConfig.SOURCE_SHA.take(8)}-$name.png"
+        val image = requireNotNull(automation.takeScreenshot()) { "No device screenshot for $name" }
         try {
+            val root = automation.rootInActiveWindow
+            assertTrue("The app is still visible in the active window after capture $name",
+                root?.packageName == appPackage && root.isVisibleToUser)
+            assertTrue("Screenshot orientation matches Android configuration for $name",
+                (image.width > image.height) == (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE))
             File(directory, filename).outputStream().use {
                 check(image.compress(Bitmap.CompressFormat.PNG, 100, it))
             }
